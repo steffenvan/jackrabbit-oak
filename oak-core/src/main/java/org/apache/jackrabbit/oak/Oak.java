@@ -88,6 +88,7 @@ import org.apache.jackrabbit.oak.plugins.index.property.jmx.PropertyIndexAsyncRe
 import org.apache.jackrabbit.oak.plugins.index.property.jmx.PropertyIndexAsyncReindexMBean;
 import org.apache.jackrabbit.oak.plugins.index.reference.ReferenceEditorProvider;
 import org.apache.jackrabbit.oak.plugins.index.reference.ReferenceIndexProvider;
+import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditorProvider;
 import org.apache.jackrabbit.oak.plugins.itemsave.ItemSaveValidatorProvider;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
 import org.apache.jackrabbit.oak.plugins.name.NameValidatorProvider;
@@ -1002,7 +1003,7 @@ public class Oak {
                 new TypeEditorProvider(), new ConflictValidatorProvider(), new ChangeCollectorProvider());
 
         private  final Iterable<IndexEditorProvider> indexEditorProviders = ImmutableList.of(
-                new ReferenceEditorProvider(), new PropertyIndexEditorProvider(), new NodeCounterEditorProvider(),
+                new ReferenceEditorProvider(), new PropertyIndexEditorProvider(), new NodeCounterEditorProvider(), new StatisticsEditorProvider(),
                 new OrderedPropertyIndexEditorProvider());
 
         private  final Iterable<QueryIndexProvider> queryIndexProviders = ImmutableList
