@@ -1,15 +1,21 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import org.apache.jackrabbit.JcrConstants;
 import org.apache.jackrabbit.oak.InitialContent;
 import org.apache.jackrabbit.oak.Oak;
 import org.apache.jackrabbit.oak.api.*;
 import org.apache.jackrabbit.oak.commons.json.JsonObject;
 import org.apache.jackrabbit.oak.commons.json.JsopTokenizer;
 import org.apache.jackrabbit.oak.plugins.index.AsyncIndexUpdate;
+import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
+import org.apache.jackrabbit.oak.plugins.index.IndexUtils;
 import org.apache.jackrabbit.oak.plugins.index.counter.NodeCounterEditorProvider;
 import org.apache.jackrabbit.oak.plugins.index.property.PropertyIndexEditorProvider;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
+import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
+import org.apache.jackrabbit.oak.spi.commit.EmptyHook;
 import org.apache.jackrabbit.oak.spi.security.OpenSecurityProvider;
+import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeStateUtils;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.apache.jackrabbit.oak.spi.whiteboard.Whiteboard;
@@ -23,6 +29,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import static org.apache.jackrabbit.oak.api.QueryEngine.NO_MAPPINGS;
+import static org.apache.jackrabbit.oak.api.Type.NAME;
+import static org.apache.jackrabbit.oak.plugins.index.IndexConstants.INDEX_DEFINITIONS_NODE_TYPE;
+import static org.apache.jackrabbit.oak.plugins.index.IndexConstants.TYPE_PROPERTY_NAME;
 import static org.junit.Assert.*;
 
 public class StatisticsIndexTest {
@@ -42,8 +51,10 @@ public class StatisticsIndexTest {
 
     @Test
     public void testNotUsedBeforeValid() throws Exception {
-        root.getTree("/oak:index/statistics").setProperty("resolution", 100);
+        String path = "/oak:index/statistics";
+        root.getTree(path).setProperty("resolution", 100);
         root.commit();
+
         // no index data before indexing
         assertFalse(nodeExists("oak:index/statistics/index"));
         // so, cost for traversal is high
@@ -55,8 +66,9 @@ public class StatisticsIndexTest {
         // by design) - so we create nodes until the index exists
         // (we could use a fixed seed to ensure this is not the case,
         // but creating nodes has the same effect)
-        for(int i=0; !nodeExists("oak:index/statistics/:index"); i++) {
-            assertTrue("index not ready after 100 iterations", i < 100);
+        int maxIter = 100;
+        for(int i=0; !nodeExists("oak:index/statistics/index"); i++) {
+            assertTrue("index not ready after " + maxIter + " iterations", i < maxIter);
             Tree t = root.getTree("/").addChild("test" + i);
             for (int j = 0; j < 100; j++) {
                 t.addChild("n" + j);
@@ -65,16 +77,14 @@ public class StatisticsIndexTest {
             runAsyncIndex();
         }
 
-        // because we do have node statistics data,
-        // cost for traversal is low
-        assertTrue(getCost("/jcr:root//*") < 1.0E8);
+        // TODO: check that the tree follows the desired structure.
+        String s = root.getTree(path).toString();
 
         // remove the statistics index
-        root.getTree("/oak:index/statistics").remove();
+        root.getTree(path).remove();
         root.commit();
-        assertFalse(nodeExists("oak:index/statistics"));
-        // so, cost for traversal is high again
-        assertTrue(getCost("/jcr:root//*") >= 1.0E8);
+
+        assertFalse(nodeExists(path));
     }
 
     private double getCost(String xpath) throws ParseException {
@@ -106,20 +116,36 @@ public class StatisticsIndexTest {
         return buff.toString();
     }
 
-    protected ContentRepository createRepository() {
+    protected ContentRepository createRepository() throws CommitFailedException {
         nodeStore = new MemoryNodeStore();
         Oak oak = new Oak(nodeStore)
                 .with(new InitialContent())
                 .with(new OpenSecurityProvider())
                 .with(new PropertyIndexEditorProvider())
-                .with(new NodeCounterEditorProvider())
                 .with(new StatisticsEditorProvider())
+                .with(new NodeCounterEditorProvider())
                 //Effectively disable async indexing auto run
                 //such that we can control run timing as per test requirement
                 .withAsyncIndexing("async", TimeUnit.DAYS.toSeconds(1));
 
+        mergeIndex("statistics");
         wb = oak.getWhiteboard();
+
         return oak.createContentRepository();
+    }
+
+    private void mergeIndex(String name) throws CommitFailedException {
+        NodeBuilder builder = nodeStore.getRoot().builder();
+        NodeBuilder index = IndexUtils.getOrCreateOakIndex(builder);
+
+        index.child(name)
+                .setProperty(JcrConstants.JCR_PRIMARYTYPE, INDEX_DEFINITIONS_NODE_TYPE, NAME)
+                .setProperty(TYPE_PROPERTY_NAME, StatisticsEditorProvider.TYPE)
+                .setProperty(IndexConstants.ASYNC_PROPERTY_NAME,
+                        IndexConstants.ASYNC_PROPERTY_NAME)
+                .setProperty("info", "STATISTICS");
+
+        nodeStore.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
     }
 
     private void runAsyncIndex() {

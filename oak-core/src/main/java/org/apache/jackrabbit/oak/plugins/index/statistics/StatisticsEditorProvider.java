@@ -39,7 +39,7 @@ import org.osgi.service.component.annotations.Reference;
 @Component(service = IndexEditorProvider.class)
 public class StatisticsEditorProvider implements IndexEditorProvider {
 
-    public static final String TYPE = "counter";
+    public static final String TYPE = "statistics";
 
     public static final String RESOLUTION = "resolution";
 
