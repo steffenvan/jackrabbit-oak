@@ -6,17 +6,11 @@ import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.commons.PathUtils;
 import org.apache.jackrabbit.oak.plugins.index.IndexUpdateCallback;
 import org.apache.jackrabbit.oak.plugins.index.counter.SipHash;
-import org.apache.jackrabbit.oak.plugins.index.counter.jmx.NodeCounter;
-import org.apache.jackrabbit.oak.plugins.index.property.Multiplexers;
 import org.apache.jackrabbit.oak.spi.commit.Editor;
 import org.apache.jackrabbit.oak.spi.mount.Mount;
-import org.apache.jackrabbit.oak.spi.mount.MountInfoProvider;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class StatisticsEditor implements Editor {
 
@@ -27,41 +21,28 @@ public class StatisticsEditor implements Editor {
 
     public static final int DEFAULT_RESOLUTION = 1000;
 
+    private final CountMinSketch propertyNameCMS;
+    private final HyperLogLog hll;
     private final StatisticsRoot root;
     private final StatisticsEditor parent;
     private final String name;
-    private final MountInfoProvider mountInfoProvider;
-    private final Map<Mount, Integer> countOffsets;
-    private final Mount currentMount;
-    private final boolean mountCanChange;
     private SipHash hash;
 
-
-    StatisticsEditor(StatisticsRoot root, MountInfoProvider mountInfoProvider) {
+    StatisticsEditor(StatisticsRoot root, CountMinSketch propertyNameCMS, HyperLogLog hll) {
         this.root = root;
         this.name = "/";
         this.parent = null;
-        this.mountInfoProvider = mountInfoProvider;
-        this.currentMount = mountInfoProvider.getDefaultMount();
-        this.mountCanChange = true;
-        this.countOffsets = new HashMap<>();
+        this.propertyNameCMS = propertyNameCMS;
+        this.hll = hll;
     }
 
-    private StatisticsEditor(StatisticsRoot root, StatisticsEditor parent, String name, SipHash hash, MountInfoProvider mountInfoProvider) {
+    private StatisticsEditor(StatisticsRoot root, StatisticsEditor parent, String name, SipHash hash, CountMinSketch propertyNameCMS, HyperLogLog hll) {
         this.parent = parent;
         this.root = root;
         this.name = name;
         this.hash = hash;
-        this.mountInfoProvider = mountInfoProvider;
-        this.countOffsets = new HashMap<>();
-        if (parent.mountCanChange) {
-            String path = getPath();
-            this.currentMount = mountInfoProvider.getMountByPath(path);
-            this.mountCanChange = currentMount.isDefault() && supportMounts(path);
-        } else {
-            this.currentMount = this.parent.currentMount;
-            this.mountCanChange = false;
-        }
+        this.propertyNameCMS = propertyNameCMS;
+        this.hll = hll;
     }
 
     private SipHash getHash() {
@@ -87,36 +68,12 @@ public class StatisticsEditor implements Editor {
     @Override
     public void leave(NodeState before, NodeState after)
             throws CommitFailedException {
-        if (countOffsets.isEmpty()) {
-            return;
-        }
-        root.callback.indexUpdate();
-        for (Map.Entry<Mount, Integer> e : countOffsets.entrySet()) {
-            Mount mount = e.getKey();
-            if (mount.isReadOnly()) {
-                continue;
-            }
-            NodeBuilder builder = getBuilder(mount);
-            int countOffset = e.getValue();
-
-            PropertyState p = builder.getProperty(COUNT_HASH_PROPERTY_NAME);
-            long count = p == null ? 0 : p.getValue(Type.LONG);
-            count += countOffset;
-            if (count <= 0) {
-                if (builder.getChildNodeCount(1) >= 0) {
-                    builder.removeProperty(COUNT_HASH_PROPERTY_NAME);
-                } else {
-                    builder.remove();
-                }
-            } else {
-                builder.setProperty(COUNT_HASH_PROPERTY_NAME, count);
-            }
-        }
+       //
     }
 
     private NodeBuilder getBuilder(Mount mount) {
         if (parent == null) {
-            return root.definition.child(Multiplexers.getNodeForMount(mount, DATA_NODE_NAME));
+            return root.definition.child(DATA_NODE_NAME);
         } else {
             return parent.getBuilder(mount).child(name);
         }
@@ -132,13 +89,37 @@ public class StatisticsEditor implements Editor {
 
     @Override
     public void propertyAdded(PropertyState after) throws CommitFailedException {
-        // nothing to do
+        propertyHasNewValue(after);
     }
 
     @Override
     public void propertyChanged(PropertyState before, PropertyState after)
             throws CommitFailedException {
-        // nothing to do
+        propertyHasNewValue(after);
+    }
+
+    private void propertyHasNewValue(PropertyState after) {
+        String propertyName = after.getName();
+        int propertyNameHash = propertyName.hashCode();
+        long properHash = Hash.hash64(propertyNameHash);
+        propertyNameCMS.add(properHash);
+
+        if (propertyNameCMS.propertyNameIsCommon(properHash)) {
+            // TODO create child node with name propertyName
+            Type<?> t = after.getType();
+            if (after.isArray()) {
+                int count = after.count();
+                for (int i = 0; i<count; i++) {
+                    Object obj = after.getValue(t, i);
+                    int valueHash = obj.hashCode();
+                    hll.add(Hash.hash64(valueHash));
+                }
+            } else {
+                Object obj = after.getValue(t);
+                int valueHash = obj.hashCode();
+                hll.add(Hash.hash64(valueHash));
+            }
+        }
     }
 
     @Override
@@ -151,59 +132,49 @@ public class StatisticsEditor implements Editor {
     @Nullable
     public Editor childNodeChanged(String name, NodeState before, NodeState after)
             throws CommitFailedException {
-        return getChildIndexEditor(name, null);
+        return this;
     }
 
     @Override
     @Nullable
     public Editor childNodeAdded(String name, NodeState after)
             throws CommitFailedException {
-        if (NodeCounter.COUNT_HASH) {
-            SipHash h = new SipHash(getHash(), name.hashCode());
-            // with bitMask=1024: with a probability of 1:1024,
-            if ((h.hashCode() & root.bitMask) == 0) {
-                // add 1024
-                count(root.bitMask + 1, currentMount);
-            }
-            return getChildIndexEditor(name, h);
-        }
-        count(1, currentMount);
-        return getChildIndexEditor(name, null);
+
+//        SipHash h = new SipHash(getHash(), name.hashCode());
+//        NodeBuilder builder = after.builder();
+//        after.compareAgainstBaseState()
+
+//        // with bitMask=1024: with a probability of 1:1024,
+//        if ((h.hashCode() & root.bitMask) == 0) {
+//            // add 1024
+//            count(root.bitMask + 1);
+//        }
+//        return getChildIndexEditor(name, h);
+//        count(1, currentMount);
+//        return getChildIndexEditor(name, null);
+        return this;
     }
 
     @Override
     @Nullable
     public Editor childNodeDeleted(String name, NodeState before)
             throws CommitFailedException {
-        if (NodeCounter.COUNT_HASH) {
-            SipHash h = new SipHash(getHash(), name.hashCode());
-            // with bitMask=1024: with a probability of 1:1024,
-            if ((h.hashCode() & root.bitMask) == 0) {
-                // subtract 1024
-                count(-(root.bitMask + 1), currentMount);
-            }
-            return getChildIndexEditor(name, h);
-        }
-        count(-1, currentMount);
-        return getChildIndexEditor(name, null);
-    }
-
-    private void count(int offset, Mount mount) {
-        countOffsets.compute(mount, (m, v) -> v == null ? offset : v + offset);
-        if (parent != null) {
-            parent.count(offset, mount);
-        }
+//        if (NodeCounter.COUNT_HASH) {
+//            SipHash h = new SipHash(getHash(), name.hashCode());
+//            // with bitMask=1024: with a probability of 1:1024,
+//            if ((h.hashCode() & root.bitMask) == 0) {
+//                // subtract 1024
+//                count(-(root.bitMask + 1), currentMount);
+//            }
+//            return getChildIndexEditor(name, h);
+//        }
+//        count(-1, currentMount);
+//        return getChildIndexEditor(name, null);
+        return this;
     }
 
     private Editor getChildIndexEditor(String name, SipHash hash) {
-        return new StatisticsEditor(root, this, name, hash, mountInfoProvider);
-    }
-
-    private boolean supportMounts(String path) {
-        return mountInfoProvider
-                .getNonDefaultMounts()
-                .stream()
-                .anyMatch(m -> m.isSupportFragmentUnder(path) || m.isUnder(path));
+        return new StatisticsEditor(root, this, name, hash, propertyNameCMS, hll);
     }
 
     public static class StatisticsRoot {

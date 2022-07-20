@@ -27,14 +27,11 @@ import org.apache.jackrabbit.oak.plugins.index.IndexEditorProvider;
 import org.apache.jackrabbit.oak.plugins.index.IndexUpdateCallback;
 import org.apache.jackrabbit.oak.plugins.index.counter.jmx.NodeCounter;
 import org.apache.jackrabbit.oak.spi.commit.Editor;
-import org.apache.jackrabbit.oak.spi.mount.MountInfoProvider;
-import org.apache.jackrabbit.oak.spi.mount.Mounts;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.osgi.service.component.annotations.Component;
-import org.osgi.service.component.annotations.Reference;
 
 @Component(service = IndexEditorProvider.class)
 public class StatisticsEditorProvider implements IndexEditorProvider {
@@ -44,9 +41,6 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
     public static final String RESOLUTION = "resolution";
 
     public static final String SEED = "seed";
-
-    @Reference
-    private MountInfoProvider mountInfoProvider = Mounts.defaultMountInfoProvider();
 
     @Override
     @Nullable
@@ -79,11 +73,9 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
 
         StatisticsEditor.StatisticsRoot rootData = new StatisticsEditor.StatisticsRoot(
                 resolution, seed, definition, root, callback);
-        return new StatisticsEditor(rootData, mountInfoProvider);
-    }
+        CountMinSketch cms = new CountMinSketch(0.01, 0.99);
+        HyperLogLog hll = new HyperLogLog(64);
 
-    public StatisticsEditorProvider with(MountInfoProvider mountInfoProvider) {
-        this.mountInfoProvider = mountInfoProvider;
-        return this;
+        return new StatisticsEditor(rootData, cms, hll);
     }
 }
