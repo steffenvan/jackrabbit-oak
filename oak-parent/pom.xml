@@ -30,7 +30,7 @@
   <groupId>org.apache.jackrabbit</groupId>
   <artifactId>oak-parent</artifactId>
   <name>Oak Parent POM</name>
-  <version>1.43-SNAPSHOT</version>
+  <version>1.45-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <properties>
@@ -44,7 +44,7 @@
     <project.reporting.outputEncoding>
       ${project.build.sourceEncoding}
     </project.reporting.outputEncoding>
-    <jackrabbit.version>2.20.5</jackrabbit.version>
+    <jackrabbit.version>2.20.6</jackrabbit.version>
     <mongo.host>127.0.0.1</mongo.host>
     <mongo.port>27017</mongo.port>
     <mongo.db>MongoMKDB</mongo.db>
@@ -67,7 +67,7 @@
     <!-- jackson-databind versions prior to 2.10.5.1 are affected by security vulnerability CVE-2020-25649.
          When upgrading jackson, try to align them to the same version -->
     <jackson.databind.version>2.10.5.1</jackson.databind.version>
-    <testcontainers.version>1.17.1</testcontainers.version>
+    <testcontainers.version>1.17.3</testcontainers.version>
     <pax-exam.version>4.13.1</pax-exam.version>
     <java.version>1.8</java.version>
     <java.version.signature>java18</java.version.signature>
@@ -212,6 +212,7 @@
                   <filter>!org.apache.jackrabbit.oak.plugins.identifier</filter>
                   <filter>!org.apache.jackrabbit.oak.plugins.index</filter>
                   <filter>!org.apache.jackrabbit.oak.plugins.index.aggregate</filter>
+                  <filter>!org.apache.jackrabbit.oak.plugins.index.cursor</filter>
                   <filter>!org.apache.jackrabbit.oak.plugins.index.fulltext</filter>
                   <filter>!org.apache.jackrabbit.oak.plugins.index.property</filter>
                   <filter>!org.apache.jackrabbit.oak.plugins.index.property.strategy</filter>
@@ -342,7 +343,7 @@
         <plugin>
           <groupId>com.github.spotbugs</groupId>
           <artifactId>spotbugs-maven-plugin</artifactId>
-          <version>3.1.11</version>
+          <version>4.7.1.0</version>
         </plugin>
         
         <plugin>
@@ -424,7 +425,7 @@
         <plugin>
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
-          <version>0.8.5</version>
+          <version>0.8.8</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -656,7 +657,7 @@
       <dependency>
         <groupId>commons-io</groupId>
         <artifactId>commons-io</artifactId>
-        <version>2.6</version>
+        <version>2.11.0</version>
       </dependency>
       <dependency>
         <groupId>commons-codec</groupId>
