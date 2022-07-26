@@ -108,9 +108,10 @@ public class StatisticsEditor implements Editor {
             // TODO create child node with name propertyName
             Type<?> t = after.getType();
             if (after.isArray()) {
+                Type<?> base = t.getBaseType();
                 int count = after.count();
                 for (int i = 0; i<count; i++) {
-                    Object obj = after.getValue(t, i);
+                    Object obj = after.getValue(base, i);
                     int valueHash = obj.hashCode();
                     hll.add(Hash.hash64(valueHash));
                 }
