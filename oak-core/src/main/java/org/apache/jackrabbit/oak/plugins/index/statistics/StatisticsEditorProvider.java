@@ -18,6 +18,8 @@
  */
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
@@ -74,8 +76,8 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
         StatisticsEditor.StatisticsRoot rootData = new StatisticsEditor.StatisticsRoot(
                 resolution, seed, definition, root, callback);
         CountMinSketch cms = new CountMinSketch(0.01, 0.99);
-        HyperLogLog hll = new HyperLogLog(64);
+        Map<String, PropertyStatistics> propertyStatistics = new HashMap<>();
 
-        return new StatisticsEditor(rootData, cms, hll);
+        return new StatisticsEditor(rootData, cms, propertyStatistics);
     }
 }

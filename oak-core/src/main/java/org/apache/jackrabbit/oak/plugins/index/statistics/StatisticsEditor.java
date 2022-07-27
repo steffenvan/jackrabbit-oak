@@ -12,37 +12,41 @@ import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
+
 public class StatisticsEditor implements Editor {
 
     public static final String DATA_NODE_NAME = "index";
+    public static final String CMS_NODE_NAME = "cms";
+    public static final String HLL_NAME = "hll";
 
-    // the property that is used with the "new" (hash of the path based) method
-    public static final String COUNT_HASH_PROPERTY_NAME = "cnt";
+    public static final String UNIQUE_PROPERTY_COUNT_NAME = "uniqueCount";
+
 
     public static final int DEFAULT_RESOLUTION = 1000;
 
     private final CountMinSketch propertyNameCMS;
-    private final HyperLogLog hll;
+    private Map<String, PropertyStatistics> propertyStatistics;
     private final StatisticsRoot root;
     private final StatisticsEditor parent;
     private final String name;
     private SipHash hash;
 
-    StatisticsEditor(StatisticsRoot root, CountMinSketch propertyNameCMS, HyperLogLog hll) {
+    StatisticsEditor(StatisticsRoot root, CountMinSketch propertyNameCMS, Map<String, PropertyStatistics> propertyStatistics) {
         this.root = root;
         this.name = "/";
         this.parent = null;
         this.propertyNameCMS = propertyNameCMS;
-        this.hll = hll;
+        this.propertyStatistics = propertyStatistics;
     }
 
-    private StatisticsEditor(StatisticsRoot root, StatisticsEditor parent, String name, SipHash hash, CountMinSketch propertyNameCMS, HyperLogLog hll) {
+    private StatisticsEditor(StatisticsRoot root, StatisticsEditor parent, String name, SipHash hash, CountMinSketch propertyNameCMS, Map<String, PropertyStatistics> propertyStatistics) {
         this.parent = parent;
         this.root = root;
         this.name = name;
         this.hash = hash;
         this.propertyNameCMS = propertyNameCMS;
-        this.hll = hll;
+        this.propertyStatistics = propertyStatistics;
     }
 
     private SipHash getHash() {
@@ -68,12 +72,23 @@ public class StatisticsEditor implements Editor {
     @Override
     public void leave(NodeState before, NodeState after)
             throws CommitFailedException {
-       //
+        root.callback.indexUpdate();
+        PropertyState p = after.getProperty(UNIQUE_PROPERTY_COUNT_NAME);
+        NodeBuilder builder = root.definition;
+        if (p == null) {
+            return;
+        }
+        long currCount = p.getValue(Type.LONG);
+        PropertyStatistics stats = propertyStatistics.get(p.getName());
+        long count = stats.getCount();
+        currCount += count;
+        // TODO: can we face the same issue that the count is negative?
+        builder.setProperty(UNIQUE_PROPERTY_COUNT_NAME, currCount);
     }
 
     private NodeBuilder getBuilder(Mount mount) {
         if (parent == null) {
-            return root.definition.child(DATA_NODE_NAME);
+            return root.definition.child(UNIQUE_PROPERTY_COUNT_NAME);
         } else {
             return parent.getBuilder(mount).child(name);
         }
@@ -105,19 +120,21 @@ public class StatisticsEditor implements Editor {
         propertyNameCMS.add(properHash);
 
         if (propertyNameCMS.propertyNameIsCommon(properHash)) {
-            // TODO create child node with name propertyName
+//            NodeBuilder builder = root.root.builder();
+//            builder.setChildNode(propertyName);
             Type<?> t = after.getType();
             if (after.isArray()) {
-                int count = after.count();
-                for (int i = 0; i<count; i++) {
-                    Object obj = after.getValue(t, i);
-                    int valueHash = obj.hashCode();
-                    hll.add(Hash.hash64(valueHash));
-                }
+//                int count = after.count();
+//                for (int i = 0; i<count; i++) {
+//                    Object obj = after.getValue(Type.fromTag(t, true), i);
+//                    int valueHash = obj.hashCode();
+//                    hll.add(Hash.hash64(valueHash));
             } else {
                 Object obj = after.getValue(t);
                 int valueHash = obj.hashCode();
-                hll.add(Hash.hash64(valueHash));
+                PropertyStatistics curr = propertyStatistics.get(propertyName);
+                curr.updateStats(Hash.hash64(valueHash));
+                curr.inc(1);
             }
         }
     }
@@ -174,7 +191,7 @@ public class StatisticsEditor implements Editor {
     }
 
     private Editor getChildIndexEditor(String name, SipHash hash) {
-        return new StatisticsEditor(root, this, name, hash, propertyNameCMS, hll);
+        return new StatisticsEditor(root, this, name, hash, propertyNameCMS, propertyStatistics);
     }
 
     public static class StatisticsRoot {
