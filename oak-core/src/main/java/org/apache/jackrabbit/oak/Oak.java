@@ -1003,8 +1003,8 @@ public class Oak {
                 new TypeEditorProvider(), new ConflictValidatorProvider(), new ChangeCollectorProvider());
 
         private  final Iterable<IndexEditorProvider> indexEditorProviders = ImmutableList.of(
-                new ReferenceEditorProvider(), new PropertyIndexEditorProvider(), new NodeCounterEditorProvider(), new StatisticsEditorProvider(),
-                new OrderedPropertyIndexEditorProvider());
+                new ReferenceEditorProvider(), new PropertyIndexEditorProvider(), new NodeCounterEditorProvider(),
+                new StatisticsEditorProvider(), new OrderedPropertyIndexEditorProvider());
 
         private  final Iterable<QueryIndexProvider> queryIndexProviders = ImmutableList
                 .of(new ReferenceIndexProvider(), new PropertyIndexProvider(), new NodeTypeIndexProvider());
