@@ -19,10 +19,10 @@
 
 package org.apache.jackrabbit.oak.composite;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.jackrabbit.oak.spi.mount.MountInfoProvider;
 import org.apache.jackrabbit.oak.spi.mount.Mounts;
@@ -33,14 +33,16 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.osgi.service.metatype.annotations.AttributeDefinition;
 import org.osgi.service.metatype.annotations.Designate;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+
+import java.util.ArrayList;
 
 @Component
 @Designate(ocd = MountInfoProviderService.Props.class)
@@ -54,7 +56,7 @@ public class MountInfoProviderService {
 
         @AttributeDefinition(
             name = "Expected mounts",
-            description = "List of all expected read-only mount names"
+            description = "List of all required mount names"
         )
         String[] expectedMounts() default {};
 
@@ -88,9 +90,9 @@ public class MountInfoProviderService {
 
     }
 
-    private final List<MountInfoConfig> mountInfoConfigs = new CopyOnWriteArrayList<>();
+    private final List<MountInfoConfig> mountInfoConfigs = new ArrayList<>();
 
-    private List<String> expectedMounts;
+    private Set<String> expectedMounts;
     private ServiceRegistration reg;
     private BundleContext context;
 
@@ -101,9 +103,9 @@ public class MountInfoProviderService {
             this.expectedMounts = Stream.of(expectedMounts)
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
-                .collect(toList());
+                .collect(toSet());
         } else {
-            this.expectedMounts = new ArrayList<>();
+            this.expectedMounts = new HashSet<>();
         }
         context = bundleContext;
         addMountInfoConfigFromProperties(props);
@@ -125,21 +127,22 @@ public class MountInfoProviderService {
         }
     }
 
-    @Reference(cardinality = ReferenceCardinality.MULTIPLE)
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policyOption = ReferencePolicyOption.GREEDY)
     protected void bindMountInfoConfig(MountInfoConfig config) {
         if (!config.getPaths().isEmpty()) { // Ignore empty configs
             mountInfoConfigs.add(config);
         }
-        registerMountInfoProvider();
+        // this is a static reference, i.e. called before activate(), the registration happens during activate()
     }
 
     private void registerMountInfoProvider() {
         if (context == null || reg != null) {
             return;
         }
-        if (!mountInfoConfigs.stream().allMatch(mountInfo -> expectedMounts.contains(mountInfo.getMountName()))) {
+        Set<String> providedMounts = mountInfoConfigs.stream().map(MountInfoConfig::getMountName).collect(toSet());
+        if (!providedMounts.containsAll(expectedMounts)) {
             LOG.info("Not all expected mounts are present yet (expected: {}, current: {}). Postponing configuration...",
-                expectedMounts, mountInfoConfigs.stream().map(MountInfoConfig::getMountName).collect(joining(",", "[", "]")));
+                expectedMounts, providedMounts);
             return;
         }
 

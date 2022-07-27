@@ -120,15 +120,16 @@ public class StatisticsEditor implements Editor {
         propertyNameCMS.add(properHash);
 
         if (propertyNameCMS.propertyNameIsCommon(properHash)) {
-//            NodeBuilder builder = root.root.builder();
-//            builder.setChildNode(propertyName);
             Type<?> t = after.getType();
             if (after.isArray()) {
-//                int count = after.count();
-//                for (int i = 0; i<count; i++) {
-//                    Object obj = after.getValue(Type.fromTag(t, true), i);
-//                    int valueHash = obj.hashCode();
-//                    hll.add(Hash.hash64(valueHash));
+                Type<?> base = t.getBaseType();
+                int count = after.count();
+                for (int i = 0; i<count; i++) {
+                    Object obj = after.getValue(base, i);
+                    int valueHash = obj.hashCode();
+                    PropertyStatistics ps = propertyStatistics.get(propertyName);
+                    ps.inc(Hash.hash64(valueHash));
+                }
             } else {
                 Object obj = after.getValue(t);
                 int valueHash = obj.hashCode();
