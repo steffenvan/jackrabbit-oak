@@ -17,11 +17,6 @@ import java.util.Map;
 public class StatisticsEditor implements Editor {
 
     public static final String DATA_NODE_NAME = "index";
-    public static final String CMS_NODE_NAME = "cms";
-    public static final String HLL_NAME = "hll";
-
-    public static final String UNIQUE_PROPERTY_COUNT_NAME = "uniqueCount";
-
 
     public static final int DEFAULT_RESOLUTION = 1000;
 
@@ -73,34 +68,17 @@ public class StatisticsEditor implements Editor {
     public void leave(NodeState before, NodeState after)
             throws CommitFailedException {
         root.callback.indexUpdate();
-        PropertyState p = after.getProperty(UNIQUE_PROPERTY_COUNT_NAME);
-        NodeBuilder builder = root.definition;
-        if (p == null) {
-            return;
-        }
-        long currCount = p.getValue(Type.LONG);
-        PropertyStatistics stats = propertyStatistics.get(p.getName());
-        long count = stats.getCount();
-        currCount += count;
-        // TODO: can we face the same issue that the count is negative?
-        builder.setProperty(UNIQUE_PROPERTY_COUNT_NAME, currCount);
-    }
-
-    private NodeBuilder getBuilder(Mount mount) {
-        if (parent == null) {
-            return root.definition.child(UNIQUE_PROPERTY_COUNT_NAME);
-        } else {
-            return parent.getBuilder(mount).child(name);
+        
+        NodeBuilder data = root.definition.child(DATA_NODE_NAME); 
+        NodeBuilder builder = data.child("properties");
+        for (Map.Entry<String, PropertyStatistics> entry : propertyStatistics.entrySet()) {
+        	NodeBuilder c = builder.child(entry.getKey());
+        	c.setProperty("count", entry.getValue().getCount());
+        	// TODO: consider using HyperLogLog4TailCut64 so that we only store a long rather than array. 
+        	c.setProperty("uniqueHLL", entry.getValue().getHll().getCounts());
         }
     }
 
-    private String getPath() {
-        if (parent == null) {
-            return name;
-        } else {
-            return PathUtils.concat(parent.getPath(), name);
-        }
-    }
 
     @Override
     public void propertyAdded(PropertyState after) throws CommitFailedException {
@@ -124,20 +102,25 @@ public class StatisticsEditor implements Editor {
             if (after.isArray()) {
                 Type<?> base = t.getBaseType();
                 int count = after.count();
-                for (int i = 0; i<count; i++) {
-                    Object obj = after.getValue(base, i);
-                    int valueHash = obj.hashCode();
-                    PropertyStatistics ps = propertyStatistics.get(propertyName);
-                    ps.inc(Hash.hash64(valueHash));
+                for (int i = 0; i < count; i++) {
+                	updatePropertyStatistics(propertyName, after.getValue(base, i));
                 }
             } else {
-                Object obj = after.getValue(t);
-                int valueHash = obj.hashCode();
-                PropertyStatistics curr = propertyStatistics.get(propertyName);
-                curr.updateStats(Hash.hash64(valueHash));
-                curr.inc(1);
+                updatePropertyStatistics(propertyName, after.getValue(t));
             }
         }
+    }
+    
+    private void updatePropertyStatistics(String propertyName, Object val) {
+    	long hash64 = Hash.hash64((val.hashCode()));
+        PropertyStatistics ps = propertyStatistics.get(propertyName);
+        if (ps == null) {
+        	// TODO: load data from previous index
+        	ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64));
+        	propertyStatistics.put(propertyName, ps);
+        	ps.updateHll(hash64);
+        } 
+        ps.inc(1);
     }
 
     @Override
@@ -158,18 +141,6 @@ public class StatisticsEditor implements Editor {
     public Editor childNodeAdded(String name, NodeState after)
             throws CommitFailedException {
 
-//        SipHash h = new SipHash(getHash(), name.hashCode());
-//        NodeBuilder builder = after.builder();
-//        after.compareAgainstBaseState()
-
-//        // with bitMask=1024: with a probability of 1:1024,
-//        if ((h.hashCode() & root.bitMask) == 0) {
-//            // add 1024
-//            count(root.bitMask + 1);
-//        }
-//        return getChildIndexEditor(name, h);
-//        count(1, currentMount);
-//        return getChildIndexEditor(name, null);
         return this;
     }
 
@@ -177,17 +148,7 @@ public class StatisticsEditor implements Editor {
     @Nullable
     public Editor childNodeDeleted(String name, NodeState before)
             throws CommitFailedException {
-//        if (NodeCounter.COUNT_HASH) {
-//            SipHash h = new SipHash(getHash(), name.hashCode());
-//            // with bitMask=1024: with a probability of 1:1024,
-//            if ((h.hashCode() & root.bitMask) == 0) {
-//                // subtract 1024
-//                count(-(root.bitMask + 1), currentMount);
-//            }
-//            return getChildIndexEditor(name, h);
-//        }
-//        count(-1, currentMount);
-//        return getChildIndexEditor(name, null);
+
         return this;
     }
 
