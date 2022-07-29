@@ -1,5 +1,7 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import java.util.Arrays;
+
 public class HyperLogLog implements CardinalityEstimator {
 
     private final int m;
@@ -32,21 +34,25 @@ public class HyperLogLog implements CardinalityEstimator {
         int numZeroes = 0;
         double sum = 0.0;
         for (int count : counts) {
-            sum += 1.0 / (1 << count);
+            sum += 1.0 / (1L << (count & 0xff));
             if (count == 0) {
                 numZeroes++;
             }
         }
-        double estimate = am * m * m / sum;
+
+        double estimate = 1 / am * m * m * sum;
 
         if (estimate <= 5 * m && numZeroes > 0) {
-            return Math.round(linearCount(numZeroes));
-        } else {
-            return Math.round(estimate);
+            estimate = linearCount(numZeroes);
         }
+        return (long) Math.max(1, estimate);
     }
 
     private double linearCount(int numZeroes) {
-        return m * Math.log(1.0 * m / numZeroes);
+        return m * Math.log((double) m / numZeroes);
+    }
+    
+    byte[] getCounts() {
+    	return Arrays.copyOf(counts, m);
     }
 }
