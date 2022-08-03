@@ -57,6 +57,7 @@ public class StatisticsIndexTest {
 
         // no index data before indexing
         assertFalse(nodeExists("oak:index/statistics/index"));
+        assertTrue(nodeExists("oak:index/statistics"));
         // so, cost for traversal is high
         assertTrue(getCost("/jcr:root//*") >= 1.0E8);
 
@@ -66,19 +67,32 @@ public class StatisticsIndexTest {
         // by design) - so we create nodes until the index exists
         // (we could use a fixed seed to ensure this is not the case,
         // but creating nodes has the same effect)
+        String s = root.getTree(path + "/index/properties/jcr:valueConstraints").toString();
+//        System.out.println(s);
+//        System.out.println("hello");
+        
         int maxIter = 100;
         for(int i=0; !nodeExists("oak:index/statistics/index"); i++) {
             assertTrue("index not ready after " + maxIter + " iterations", i < maxIter);
-            Tree t = root.getTree("/").addChild("test" + i);
+            Tree t = root.getTree(path).addChild("test" + i);
             for (int j = 0; j < 100; j++) {
                 t.addChild("n" + j);
             }
             root.commit();
             runAsyncIndex();
         }
-
+        
+        for(int i=0; i < 10; i++) {
+            assertTrue("index not ready after " + maxIter + " iterations", i < maxIter);
+            Tree t = root.getTree(path).addChild("test3" + i);
+            for (int j = 0; j < 100; j++) {
+                t.addChild("ns" + j);
+            }
+            root.commit();
+            runAsyncIndex();
+        }
         // TODO: check that the tree follows the desired structure.
-        String s = root.getTree(path).toString();
+//        String s = root.getTree(path).toString();
 
         // remove the statistics index
         root.getTree(path).remove();
@@ -123,12 +137,23 @@ public class StatisticsIndexTest {
                 .with(new OpenSecurityProvider())
                 .with(new PropertyIndexEditorProvider())
                 .with(new StatisticsEditorProvider())
-                .with(new NodeCounterEditorProvider())
+//                .with(new NodeCounterEditorProvider())
                 //Effectively disable async indexing auto run
                 //such that we can control run timing as per test requirement
                 .withAsyncIndexing("async", TimeUnit.DAYS.toSeconds(1));
 
-        mergeIndex("statistics");
+//        mergeIndex("statistics");
+        NodeBuilder builder = nodeStore.getRoot().builder();
+        NodeBuilder index = IndexUtils.getOrCreateOakIndex(builder);
+
+        index.child("statistics")
+                .setProperty(JcrConstants.JCR_PRIMARYTYPE, INDEX_DEFINITIONS_NODE_TYPE, NAME)
+                .setProperty(TYPE_PROPERTY_NAME, StatisticsEditorProvider.TYPE)
+                .setProperty(IndexConstants.ASYNC_PROPERTY_NAME,
+                        IndexConstants.ASYNC_PROPERTY_NAME)
+                .setProperty("info", "STATISTICS");
+
+        nodeStore.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
         wb = oak.getWhiteboard();
 
         return oak.createContentRepository();

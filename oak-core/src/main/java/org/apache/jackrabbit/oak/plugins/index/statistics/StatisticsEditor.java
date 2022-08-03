@@ -10,8 +10,10 @@ import org.apache.jackrabbit.oak.spi.commit.Editor;
 import org.apache.jackrabbit.oak.spi.mount.Mount;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Iterator;
 import java.util.Map;
 
 public class StatisticsEditor implements Editor {
@@ -26,6 +28,7 @@ public class StatisticsEditor implements Editor {
     private final StatisticsEditor parent;
     private final String name;
     private SipHash hash;
+    private int recursionLevel;
 
     StatisticsEditor(StatisticsRoot root, CountMinSketch propertyNameCMS, Map<String, PropertyStatistics> propertyStatistics) {
         this.root = root;
@@ -62,12 +65,17 @@ public class StatisticsEditor implements Editor {
     public void enter(NodeState before, NodeState after)
             throws CommitFailedException {
         // nothing to do
+    	recursionLevel++;
     }
 
     @Override
     public void leave(NodeState before, NodeState after)
             throws CommitFailedException {
         root.callback.indexUpdate();
+        recursionLevel--;
+        if (recursionLevel > 0) {
+        	return;
+        }
         
         NodeBuilder data = root.definition.child(DATA_NODE_NAME); 
         NodeBuilder builder = data.child("properties");
@@ -77,6 +85,8 @@ public class StatisticsEditor implements Editor {
         	// TODO: consider using HyperLogLog4TailCut64 so that we only store a long rather than array. 
         	c.setProperty("uniqueHLL", entry.getValue().getHll().getCounts());
         }
+        propertyStatistics.clear();
+        root.callback.indexUpdate();
     }
 
 
@@ -109,15 +119,26 @@ public class StatisticsEditor implements Editor {
                 updatePropertyStatistics(propertyName, after.getValue(t));
             }
         }
-    }
+    }		
     
     private void updatePropertyStatistics(String propertyName, Object val) {
-    	long hash64 = Hash.hash64((val.hashCode()));
         PropertyStatistics ps = propertyStatistics.get(propertyName);
         if (ps == null) {
         	// TODO: load data from previous index
+//        	System.out.println(propertyName);
+        	NodeBuilder data = root.definition.child(DATA_NODE_NAME);
+        	@Nullable PropertyState count = data.child("properties").child(propertyName).getProperty("count");
+//        	if (count != null) {
+//        		if (!count.isArray()) {
+//        			Type<?> propertyCount = val;
+//        		}
+//        		
+//        	}
+        	System.out.println(propertyName + ": " + count);
+        	
         	ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64));
         	propertyStatistics.put(propertyName, ps);
+        	long hash64 = Hash.hash64((val.hashCode()));
         	ps.updateHll(hash64);
         } 
         ps.inc(1);
