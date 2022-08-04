@@ -71,22 +71,34 @@ public class StatisticsIndexTest {
 //        System.out.println(s);
 //        System.out.println("hello");
         
+        System.out.println(nodeExists("oak:index/statistics/index"));
         int maxIter = 100;
         for(int i=0; !nodeExists("oak:index/statistics/index"); i++) {
             assertTrue("index not ready after " + maxIter + " iterations", i < maxIter);
             Tree t = root.getTree(path).addChild("test" + i);
             for (int j = 0; j < 100; j++) {
-                t.addChild("n" + j);
+                t.addChild("n" + j).setProperty("ABC", 1);;
+//                System.out.println("HELLO");
             }
             root.commit();
             runAsyncIndex();
         }
         
-        for(int i=0; i < 10; i++) {
+        for(int i=0; i < 5; i++) {
             assertTrue("index not ready after " + maxIter + " iterations", i < maxIter);
-            Tree t = root.getTree(path).addChild("test3" + i);
+            Tree t = root.getTree(path).addChild("test-" + i);
             for (int j = 0; j < 100; j++) {
-                t.addChild("ns" + j);
+                t.addChild("ns" + j).setProperty("ABC", j);
+            }
+            root.commit();
+            runAsyncIndex();
+        }
+        
+        for(int i=0; i < 5; i++) {
+            assertTrue("index not ready after " + maxIter + " iterations", i < maxIter);
+            Tree t = root.getTree(path).addChild("test2-" + i);
+            for (int j = 0; j < 420; j++) {
+                t.addChild("ns" + j).setProperty("KFC", j);
             }
             root.commit();
             runAsyncIndex();

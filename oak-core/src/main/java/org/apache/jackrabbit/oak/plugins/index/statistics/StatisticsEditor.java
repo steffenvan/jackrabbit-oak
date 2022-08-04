@@ -71,7 +71,7 @@ public class StatisticsEditor implements Editor {
     @Override
     public void leave(NodeState before, NodeState after)
             throws CommitFailedException {
-        root.callback.indexUpdate();
+//        root.callback.indexUpdate();
         recursionLevel--;
         if (recursionLevel > 0) {
         	return;
@@ -86,7 +86,6 @@ public class StatisticsEditor implements Editor {
         	c.setProperty("uniqueHLL", entry.getValue().getHll().getCounts());
         }
         propertyStatistics.clear();
-        root.callback.indexUpdate();
     }
 
 
@@ -125,18 +124,21 @@ public class StatisticsEditor implements Editor {
         PropertyStatistics ps = propertyStatistics.get(propertyName);
         if (ps == null) {
         	// TODO: load data from previous index
-//        	System.out.println(propertyName);
         	NodeBuilder data = root.definition.child(DATA_NODE_NAME);
         	@Nullable PropertyState count = data.child("properties").child(propertyName).getProperty("count");
-//        	if (count != null) {
-//        		if (!count.isArray()) {
-//        			Type<?> propertyCount = val;
-//        		}
-//        		
-//        	}
         	System.out.println(propertyName + ": " + count);
-        	
-        	ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64));
+        	if (count == null) {
+        		ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64)); 
+        	} else {        		
+        		
+        		long c = count.getValue(Type.LONG);
+        		
+        		PropertyState hps = data.child("properties").child(propertyName).getProperty("uniqueHLL");
+        		// TODO: Can we use Type.REFERENCE here? Then we shouldn't only store the array 
+        		// but the whole HLL object. 
+				// Iterable<Long> hllArray = hps.getValue(Type.LONGS);
+        		ps = new PropertyStatistics(propertyName, c, new HyperLogLog(64));
+        	}
         	propertyStatistics.put(propertyName, ps);
         	long hash64 = Hash.hash64((val.hashCode()));
         	ps.updateHll(hash64);
