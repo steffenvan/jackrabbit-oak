@@ -12,8 +12,12 @@ public class HyperLogLog implements CardinalityEstimator {
 	private final double am;
 
 	public HyperLogLog(int m) {
+		this(m, new byte[m]);
+	}
+
+	public HyperLogLog(int m, byte[] counts) {
 		this.m = m;
-		this.counts = new byte[m];
+		this.counts = counts;
 		switch (m) {
 		case 32:
 			this.am = 0.697;
@@ -24,6 +28,7 @@ public class HyperLogLog implements CardinalityEstimator {
 		default:
 			this.am = 0.7213 / (1.0 + 1.079 / m);
 		}
+
 	}
 
 	@Override
@@ -72,7 +77,7 @@ public class HyperLogLog implements CardinalityEstimator {
 		return sb.toString();
 	}
 
-	public byte[] deserialize(String hllCounts) {
+	public static byte[] deserialize(String hllCounts) {
 		String[] parts = hllCounts.split("\\s+");
 		List<Byte> longList = Stream.of(parts).map(Byte::valueOf).collect(Collectors.toList());
 		byte[] data = new byte[parts.length];
