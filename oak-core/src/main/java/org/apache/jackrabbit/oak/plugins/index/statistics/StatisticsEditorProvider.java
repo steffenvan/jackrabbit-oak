@@ -44,6 +44,8 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
 
     public static final String SEED = "seed";
 
+    public static final String COMMON_PROPERTY_THRESHOLD = "commonPropertyThreshold";
+
     @Override
     @Nullable
     public Editor getIndexEditor(@NotNull String type,
@@ -71,10 +73,16 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
                 definition.setProperty(SEED, seed);
             }
         }
-
+        int commonPropertyThreshold;
+        s = definition.getProperty(COMMON_PROPERTY_THRESHOLD);
+        if (s == null) {
+            commonPropertyThreshold = 10;
+        } else {
+            commonPropertyThreshold = s.getValue(Type.LONG).intValue();
+        }
 
         StatisticsEditor.StatisticsRoot rootData = new StatisticsEditor.StatisticsRoot(
-                resolution, seed, definition, root, callback);
+                resolution, seed, definition, root, callback, commonPropertyThreshold);
         CountMinSketch cms = new CountMinSketch(0.01, 0.99);
         Map<String, PropertyStatistics> propertyStatistics = new HashMap<>();
 

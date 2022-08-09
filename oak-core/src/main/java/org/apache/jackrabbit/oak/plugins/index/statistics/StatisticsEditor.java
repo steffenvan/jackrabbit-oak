@@ -1,5 +1,7 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
+
 import java.util.Map;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
@@ -8,11 +10,16 @@ import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.plugins.index.IndexUpdateCallback;
 import org.apache.jackrabbit.oak.plugins.index.counter.SipHash;
 import org.apache.jackrabbit.oak.spi.commit.Editor;
+import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class StatisticsEditor implements Editor {
+
+    private static final Logger LOG = LoggerFactory.getLogger(StatisticsEditor.class);
 
 	public static final String DATA_NODE_NAME = "index";
 
@@ -33,16 +40,24 @@ public class StatisticsEditor implements Editor {
 		this.parent = null;
 		this.propertyNameCMS = propertyNameCMS;
 		this.propertyStatistics = propertyStatistics;
-	}
-
-	private StatisticsEditor(StatisticsRoot root, StatisticsEditor parent, String name, SipHash hash,
-			CountMinSketch propertyNameCMS, Map<String, PropertyStatistics> propertyStatistics) {
-		this.parent = parent;
-		this.root = root;
-		this.name = name;
-		this.hash = hash;
-		this.propertyNameCMS = propertyNameCMS;
-		this.propertyStatistics = propertyStatistics;
+		if (root.definition.hasChildNode(DATA_NODE_NAME)) {
+		    NodeBuilder data = root.definition.getChildNode(DATA_NODE_NAME);
+	        for (int i = 0; i < propertyNameCMS.getData().length; i++) {
+	            PropertyState ps = data.getProperty("property" + i);
+	            if (ps != null) {
+	                String s = ps.getValue(Type.STRING);
+	                String[] list = s.split(" ");
+	                for(int j = 0; j < list.length; j++) {
+	                    try {
+	                        long x = Long.parseLong(list[j]);
+	                        propertyNameCMS.getData()[i][j] = x;
+	                    } catch (NumberFormatException e) {
+	                        LOG.warn("Can not parse " + s);
+	                    }
+	                }
+	            }
+	        }
+		}
 	}
 
 	private SipHash getHash() {
@@ -67,22 +82,25 @@ public class StatisticsEditor implements Editor {
 
 	@Override
 	public void leave(NodeState before, NodeState after) throws CommitFailedException {
-//        root.callback.indexUpdate();
 		recursionLevel--;
 		if (recursionLevel > 0) {
 			return;
 		}
+//        root.callback.indexUpdate();
 
 		NodeBuilder data = root.definition.child(DATA_NODE_NAME);
-		NodeBuilder builder = data.child("properties");
+		setPrimaryType(data);
+        NodeBuilder properties = data.child("properties");
+        setPrimaryType(properties);
+        String[] cmsSerialized = this.propertyNameCMS.serialize();
+        for (int i = 0; i < cmsSerialized.length; i++) {
+            data.setProperty("property" + i, cmsSerialized[i]);
+        }
 		for (Map.Entry<String, PropertyStatistics> entry : propertyStatistics.entrySet()) {
-			NodeBuilder statNode = builder.child(entry.getKey());
-			String[] cmsSerialized = this.propertyNameCMS.serialize();
+			NodeBuilder statNode = properties.child(entry.getKey());
 
+			setPrimaryType(statNode);
 			statNode.setProperty("count", entry.getValue().getCount());
-			for (int i = 0; i < cmsSerialized.length; i++) {
-				statNode.setProperty("property" + i, cmsSerialized[i]);
-			}
 
 			String hllSerialized = entry.getValue().getHll().serialize();
 			// TODO: consider using HyperLogLog4TailCut64 so that we only store a long
@@ -90,6 +108,10 @@ public class StatisticsEditor implements Editor {
 			statNode.setProperty("uniqueHLL", hllSerialized);
 		}
 		propertyStatistics.clear();
+	}
+
+	private static void setPrimaryType(NodeBuilder builder) {
+	    builder.setProperty(JCR_PRIMARYTYPE, NodeTypeConstants.NT_OAK_UNSTRUCTURED, Type.NAME);
 	}
 
 	@Override
@@ -107,8 +129,8 @@ public class StatisticsEditor implements Editor {
 		int propertyNameHash = propertyName.hashCode();
 		long properHash = Hash.hash64(propertyNameHash);
 		propertyNameCMS.add(properHash);
-
-		if (propertyNameCMS.propertyNameIsCommon(properHash)) {
+		long approxCount = propertyNameCMS.estimateCount(properHash);
+		if (approxCount >= root.commonPropertyThreshold) {
 			Type<?> t = after.getType();
 			if (after.isArray()) {
 				Type<?> base = t.getBaseType();
@@ -125,25 +147,39 @@ public class StatisticsEditor implements Editor {
 	private void updatePropertyStatistics(String propertyName, Object val) {
 		PropertyStatistics ps = propertyStatistics.get(propertyName);
 		if (ps == null) {
-			// TODO: load data from previous index
-			NodeBuilder data = root.definition.child(DATA_NODE_NAME);
-			@Nullable
-			PropertyState count = data.child("properties").child(propertyName).getProperty("count");
-			System.out.println(propertyName + ": " + count);
-			if (count == null) {
-				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64));
-			} else {
-				long c = count.getValue(Type.LONG);
-				PropertyState hps = data.child("properties").child(propertyName).getProperty("uniqueHLL");
-				String hpsIndexed = hps.getValue(Type.STRING);
-				byte[] hllData = HyperLogLog.deserialize(hpsIndexed);
-				ps = new PropertyStatistics(propertyName, c, new HyperLogLog(64, hllData));
-			}
+		    ps = readPropertyStatistics(propertyName);
+		    if (ps == null) {
+		        ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64));
+		    }
 			propertyStatistics.put(propertyName, ps);
-			long hash64 = Hash.hash64((val.hashCode()));
-			ps.updateHll(hash64);
 		}
+		long hash64 = Hash.hash64((val.hashCode()));
+		ps.updateHll(hash64);
 		ps.inc(1);
+	}
+
+	private PropertyStatistics readPropertyStatistics(String propertyName) {
+	    if (!root.definition.hasChildNode(DATA_NODE_NAME)) {
+	        return null;
+	    }
+	    NodeBuilder data = root.definition.getChildNode(DATA_NODE_NAME);
+	    if (!data.hasChildNode("properties")) {
+	        return null;
+	    }
+	    NodeBuilder properties = data.getChildNode("properties");
+	    if (!properties.hasChildNode(propertyName)) {
+	        return null;
+	    }
+	    NodeBuilder prop = properties.getChildNode(propertyName);
+	    PropertyState count = prop.getProperty("count");
+        if (count == null) {
+            return null;
+        }
+        long c = count.getValue(Type.LONG);
+        PropertyState hps = prop.getProperty("uniqueHLL");
+        String hpsIndexed = hps.getValue(Type.STRING);
+        byte[] hllData = HyperLogLog.deserialize(hpsIndexed);
+        return new PropertyStatistics(propertyName, c, new HyperLogLog(64, hllData));
 	}
 
 	@Override
@@ -160,19 +196,13 @@ public class StatisticsEditor implements Editor {
 	@Override
 	@Nullable
 	public Editor childNodeAdded(String name, NodeState after) throws CommitFailedException {
-
 		return this;
 	}
 
 	@Override
 	@Nullable
 	public Editor childNodeDeleted(String name, NodeState before) throws CommitFailedException {
-
 		return this;
-	}
-
-	private Editor getChildIndexEditor(String name, SipHash hash) {
-		return new StatisticsEditor(root, this, name, hash, propertyNameCMS, propertyStatistics);
 	}
 
 	public static class StatisticsRoot {
@@ -182,9 +212,10 @@ public class StatisticsEditor implements Editor {
 		final NodeBuilder definition;
 		final NodeState root;
 		final IndexUpdateCallback callback;
+	    private final int commonPropertyThreshold;
 
 		StatisticsRoot(int resolution, long seed, NodeBuilder definition, NodeState root,
-				IndexUpdateCallback callback) {
+				IndexUpdateCallback callback, int commonPropertyThreshold) {
 			this.resolution = resolution;
 			this.seed = seed;
 			// if resolution is 1000, then the bitMask is 1023 (bits 0..9 set)
@@ -192,6 +223,7 @@ public class StatisticsEditor implements Editor {
 			this.definition = definition;
 			this.root = root;
 			this.callback = callback;
+	        this.commonPropertyThreshold = commonPropertyThreshold;
 		}
 	}
 }
