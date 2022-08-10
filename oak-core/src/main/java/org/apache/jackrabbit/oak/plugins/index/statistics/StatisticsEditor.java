@@ -17,6 +17,10 @@ public class StatisticsEditor implements Editor {
 	public static final String DATA_NODE_NAME = "index";
 
 	public static final int DEFAULT_RESOLUTION = 1000;
+	public static final int DEFAULT_HLL_SIZE = 10;
+
+	public static final String PROPERTY_CMS_NAME = "propertiesCountMinSketch";
+	public static final String PROPERTY_HLL_NAME = "uniqueHLL";
 
 	private final CountMinSketch propertyNameCMS;
 	private Map<String, PropertyStatistics> propertyStatistics;
@@ -45,6 +49,10 @@ public class StatisticsEditor implements Editor {
 		this.propertyStatistics = propertyStatistics;
 	}
 
+	public CountMinSketch getCMS() {
+		return this.propertyNameCMS;
+	}
+
 	private SipHash getHash() {
 		if (hash != null) {
 			return hash;
@@ -67,7 +75,7 @@ public class StatisticsEditor implements Editor {
 
 	@Override
 	public void leave(NodeState before, NodeState after) throws CommitFailedException {
-//        root.callback.indexUpdate();
+		root.callback.indexUpdate();
 		recursionLevel--;
 		if (recursionLevel > 0) {
 			return;
@@ -75,20 +83,24 @@ public class StatisticsEditor implements Editor {
 
 		NodeBuilder data = root.definition.child(DATA_NODE_NAME);
 		NodeBuilder builder = data.child("properties");
+
 		for (Map.Entry<String, PropertyStatistics> entry : propertyStatistics.entrySet()) {
 			NodeBuilder statNode = builder.child(entry.getKey());
-			String[] cmsSerialized = this.propertyNameCMS.serialize();
 
-			statNode.setProperty("count", entry.getValue().getCount());
-			for (int i = 0; i < cmsSerialized.length; i++) {
-				statNode.setProperty("property" + i, cmsSerialized[i]);
-			}
-
+			statNode.setProperty("uniqueHLLCount", entry.getValue().getCount());
 			String hllSerialized = entry.getValue().getHll().serialize();
 			// TODO: consider using HyperLogLog4TailCut64 so that we only store a long
 			// rather than array.
-			statNode.setProperty("uniqueHLL", hllSerialized);
+			statNode.setProperty(PROPERTY_HLL_NAME, hllSerialized);
 		}
+		NodeBuilder cmsNode = builder.child(PROPERTY_CMS_NAME);
+
+		String[] cmsSerialized = this.propertyNameCMS.serialize();
+		for (int i = 0; i < cmsSerialized.length; i++) {
+			String row = cmsSerialized[i];
+			cmsNode.setProperty("p" + i, row);
+		}
+
 		propertyStatistics.clear();
 	}
 
@@ -106,6 +118,10 @@ public class StatisticsEditor implements Editor {
 		String propertyName = after.getName();
 		int propertyNameHash = propertyName.hashCode();
 		long properHash = Hash.hash64(propertyNameHash);
+		// this shouldn't happen
+		if (propertyName.equals("p0")) {
+			System.out.println("ERROR");
+		}
 		propertyNameCMS.add(properHash);
 
 		if (propertyNameCMS.propertyNameIsCommon(properHash)) {
@@ -123,28 +139,53 @@ public class StatisticsEditor implements Editor {
 	}
 
 	private void updatePropertyStatistics(String propertyName, Object val) {
+
 		PropertyStatistics ps = propertyStatistics.get(propertyName);
 		if (ps == null) {
 			// TODO: load data from previous index
 			NodeBuilder data = root.definition.child(DATA_NODE_NAME);
 			@Nullable
-			PropertyState count = data.child("properties").child(propertyName).getProperty("count");
-			System.out.println(propertyName + ": " + count);
-			if (count == null) {
-				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64));
+			PropertyState storedHLLProperty = data.child("properties").child(propertyName)
+					.getProperty(PROPERTY_HLL_NAME);
+			System.out.println(propertyName + ": " + storedHLLProperty);
+			// read from data from the countProperty if it already exists in the index
+			// otherwise we create a new one from scratch.
+			if (storedHLLProperty == null) {
+				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(DEFAULT_HLL_SIZE));
 			} else {
-				long c = count.getValue(Type.LONG);
-				PropertyState hps = data.child("properties").child(propertyName).getProperty("uniqueHLL");
+				long storedCount = storedHLLProperty.getValue(Type.LONG);
+				// TODO: Technically we should also check that
+				PropertyState hps = data.child("properties").child(propertyName).getProperty(PROPERTY_HLL_NAME);
 				String hpsIndexed = hps.getValue(Type.STRING);
-				byte[] hllData = HyperLogLog.deserialize(hpsIndexed);
-				ps = new PropertyStatistics(propertyName, c, new HyperLogLog(64, hllData));
+				byte[] storedHLLData = HyperLogLog.deserialize(hpsIndexed);
+				ps = new PropertyStatistics(propertyName, storedCount,
+						new HyperLogLog(DEFAULT_HLL_SIZE, storedHLLData));
 			}
 			propertyStatistics.put(propertyName, ps);
-			long hash64 = Hash.hash64((val.hashCode()));
-			ps.updateHll(hash64);
 		}
+		long hash64 = Hash.hash64(val.hashCode());
+		ps.updateHll(hash64);
 		ps.inc(1);
 	}
+
+//	private void update(long hash64, Object val) {
+//		long hash64 = Hash.hash64((val.hashCode()));
+//		ps.updateHll(hash64);
+//		
+//	}
+
+//	private PropertyStatistics fromPropertyState(PropertyState ps, String propertyName) {
+//		if (ps == null) {
+//			return new PropertyStatistics(propertyName, 0, new HyperLogLog(DEFAULT_HLL_SIZE));
+//		}
+//
+//		long storedCount = ps.getValue(Type.LONG);
+//		PropertyState hps = data.child("properties").child(propertyName).getProperty("uniqueHLL");
+//		String hpsIndexed = hps.getValue(Type.STRING);
+//		byte[] hllData = HyperLogLog.deserialize(hpsIndexed);
+//		ps = new PropertyStatistics(propertyName, storedCount, new HyperLogLog(64, hllData));
+//
+//	}
 
 	@Override
 	public void propertyDeleted(PropertyState before) throws CommitFailedException {

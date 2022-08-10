@@ -38,46 +38,46 @@ import org.osgi.service.component.annotations.Component;
 @Component(service = IndexEditorProvider.class)
 public class StatisticsEditorProvider implements IndexEditorProvider {
 
-    public static final String TYPE = "statistics";
+	public static final String TYPE = "statistics";
 
-    public static final String RESOLUTION = "resolution";
+	public static final String RESOLUTION = "resolution";
 
-    public static final String SEED = "seed";
+	public static final String SEED = "seed";
 
-    @Override
-    @Nullable
-    public Editor getIndexEditor(@NotNull String type,
-                                 @NotNull NodeBuilder definition, @NotNull NodeState root,
-                                 @NotNull IndexUpdateCallback callback) throws CommitFailedException {
-        if (!TYPE.equals(type)) {
-            return null;
-        }
-        int resolution;
-        PropertyState s = definition.getProperty(RESOLUTION);
-        if (s == null) {
-            resolution = StatisticsEditor.DEFAULT_RESOLUTION;
-        } else {
-            resolution = s.getValue(Type.LONG).intValue();
-        }
-        long seed;
-        s = definition.getProperty(SEED);
-        if (s != null) {
-            seed = s.getValue(Type.LONG).intValue();
-        } else {
-            seed = 0;
-            if (NodeCounter.COUNT_HASH) {
-                // create a random number (that way we can also check if this feature is enabled)
-                seed = UUID.randomUUID().getMostSignificantBits();
-                definition.setProperty(SEED, seed);
-            }
-        }
+	@Override
+	@Nullable
+	public Editor getIndexEditor(@NotNull String type, @NotNull NodeBuilder definition, @NotNull NodeState root,
+			@NotNull IndexUpdateCallback callback) throws CommitFailedException {
+		if (!TYPE.equals(type)) {
+			return null;
+		}
+		int resolution;
+		PropertyState s = definition.getProperty(RESOLUTION);
+		if (s == null) {
+			resolution = StatisticsEditor.DEFAULT_RESOLUTION;
+		} else {
+			resolution = s.getValue(Type.LONG).intValue();
+		}
+		long seed;
+		s = definition.getProperty(SEED);
+		if (s != null) {
+			seed = s.getValue(Type.LONG).intValue();
+		} else {
+			seed = 0;
+			if (NodeCounter.COUNT_HASH) {
+				// create a random number (that way we can also check if this feature is
+				// enabled)
+				seed = UUID.randomUUID().getMostSignificantBits();
+				definition.setProperty(SEED, seed);
+			}
+		}
 
+		StatisticsEditor.StatisticsRoot rootData = new StatisticsEditor.StatisticsRoot(resolution, seed, definition,
+				root, callback);
+		CountMinSketch cms = new CountMinSketch(2, 5);
+//		CountMinSketch cms = new CountMinSketch(0.01, 0.99);
+		Map<String, PropertyStatistics> propertyStatistics = new HashMap<>();
 
-        StatisticsEditor.StatisticsRoot rootData = new StatisticsEditor.StatisticsRoot(
-                resolution, seed, definition, root, callback);
-        CountMinSketch cms = new CountMinSketch(0.01, 0.99);
-        Map<String, PropertyStatistics> propertyStatistics = new HashMap<>();
-
-        return new StatisticsEditor(rootData, cms, propertyStatistics);
-    }
+		return new StatisticsEditor(rootData, cms, propertyStatistics);
+	}
 }
