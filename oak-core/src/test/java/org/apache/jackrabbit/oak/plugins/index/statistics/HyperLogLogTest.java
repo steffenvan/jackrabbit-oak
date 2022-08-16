@@ -30,7 +30,7 @@ public class HyperLogLogTest {
 		double maxError = 1.3 / Math.sqrt(m);
 		double error = (double) estimated / actual;
 		System.out.println(error);
-		Assert.assertTrue("maxerror: " + maxError + "got: " + error, error <= maxError);
+		Assert.assertTrue("maxerror: " + maxError + " got: " + error, error <= maxError);
 		System.out.println(actualUniqueElements.size());
 		System.out.println(hll.estimate());
 	}

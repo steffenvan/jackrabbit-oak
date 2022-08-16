@@ -1,6 +1,5 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -68,12 +67,19 @@ public class CountMinSketch implements FrequencyCounter {
 		return currMin;
 	}
 
-	public boolean propertyNameIsCommon(long hash) {
-		return estimateCount(hash) >= 10;
+	public static long estimateCount(long hash, long[][] counts, int cols, int rows) {
+		long currMin = Long.MAX_VALUE;
+		int shift = Integer.bitCount(rows);
+		for (int i = 0; i < rows; i++) {
+			currMin = Math.min(currMin, counts[i][Hash.reduce(hash, cols)]);
+			hash >>>= shift;
+		}
+
+		return currMin;
 	}
 
 	public long[][] getData() {
-		return Arrays.stream(items).map(long[]::clone).toArray(long[][]::new);
+		return items;
 	}
 
 	public String[] serialize() {
@@ -93,7 +99,7 @@ public class CountMinSketch implements FrequencyCounter {
 		return asStrings;
 	}
 
-	public long[] deserialize(String row) {
+	public static long[] deserialize(String row) {
 		String[] allStuff = row.split("\\s+");
 		List<Long> longList = Stream.of(allStuff).map(Long::valueOf).collect(Collectors.toList());
 		return longList.stream().mapToLong(i -> i).toArray();
