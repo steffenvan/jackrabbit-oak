@@ -15,7 +15,7 @@ public interface StatisticsMBean {
 	 * @return
 	 */
 	@Description("Get the estimated number of properties of the specified property")
-	EstimationResults getSinglePropertyEstimation(@Description("the path") @Name("name") String name);
+	EstimationResult getSinglePropertyEstimation(@Description("the path") @Name("name") String name);
 
 	/**
 	 * Get the estimated number of statistics for all indexed properties.
@@ -23,7 +23,7 @@ public interface StatisticsMBean {
 	 * @return
 	 */
 	@Description("Get the estimated number of all indexed properties")
-	List<EstimationResults> getAllPropertiesEstimation();
+	List<EstimationResult> getAllPropertiesEstimation();
 
 	@Description("Get the estimated number property entries for this specific")
 	long getEstimatedPropertyCount(String name);

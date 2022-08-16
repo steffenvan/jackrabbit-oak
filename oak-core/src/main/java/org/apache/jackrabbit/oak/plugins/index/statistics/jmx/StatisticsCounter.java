@@ -26,7 +26,7 @@ public class StatisticsCounter extends AnnotatedStandardMBean implements Statist
 	}
 
 	@Override
-	public EstimationResults getSinglePropertyEstimation(String name) {
+	public EstimationResult getSinglePropertyEstimation(String name) {
 		// get children of statistics index
 		// extract the child with the specified name.
 		// deserialize the statistics information stored in the node
@@ -34,22 +34,21 @@ public class StatisticsCounter extends AnnotatedStandardMBean implements Statist
 
 		NodeState root = store.getRoot();
 		NodeState indexNode = root.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
-		NodeState property = indexNode.getChildNode(STATISTICS_INDEX_NAME).getChildNode("statistics")
-				.getChildNode("properties").getChildNode(name);
+		NodeState property = indexNode.getChildNode(STATISTICS_INDEX_NAME).getChildNode("properties")
+				.getChildNode(name);
 		long count = property.getProperty("count").getValue(Type.LONG);
 		String storedHll = property.getProperty("uniqueHLL").getValue(Type.STRING);
 		byte[] hllCounts = HyperLogLog.deserialize(storedHll);
 		HyperLogLog hll = new HyperLogLog(hllCounts.length, hllCounts);
 
-		return new EstimationResults(count, hll.estimate());
+		return new EstimationResult(count, hll.estimate());
 	}
 
 	@Override
 	public long getEstimatedPropertyCount(String name) {
 		NodeState root = store.getRoot();
 		NodeState indexNode = root.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
-		NodeState cmsIndex = indexNode.getChildNode(STATISTICS_INDEX_NAME).getChildNode("statistics")
-				.getChildNode(name);
+		NodeState cmsIndex = indexNode.getChildNode(STATISTICS_INDEX_NAME).getChildNode(name);
 
 		@NotNull
 		Iterable<? extends PropertyState> properties = cmsIndex.getProperties();
@@ -70,6 +69,29 @@ public class StatisticsCounter extends AnnotatedStandardMBean implements Statist
 
 	}
 
+	@Override
+	public List<EstimationResult> getAllPropertiesEstimation() {
+		// Read from the count index, deserialize and then report the estimated count of
+		NodeState root = store.getRoot();
+		NodeState indexNode = root.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME)
+				.getChildNode(STATISTICS_INDEX_NAME).getChildNode("properties");
+
+		List<EstimationResult> propertyCounts = new ArrayList<>();
+
+		for (ChildNodeEntry child : indexNode.getChildNodeEntries()) {
+			NodeState childNode = child.getNodeState();
+			long count = childNode.getProperty("count").getValue(Type.LONG);
+			String uniqueHll = childNode.getProperty("uniqueHLL").getValue(Type.STRING);
+			byte[] hll = HyperLogLog.deserialize(uniqueHll);
+			HyperLogLog hllObj = new HyperLogLog(hll.length, hll);
+
+			propertyCounts.add(new EstimationResult(count, hllObj.estimate()));
+		}
+
+		return propertyCounts;
+
+	}
+
 	private int getNumCols(Iterable<? extends PropertyState> properties) {
 		return properties.iterator().hasNext()
 				? CountMinSketch.deserialize(properties.iterator().next().getValue(Type.STRING)).length
@@ -84,26 +106,4 @@ public class StatisticsCounter extends AnnotatedStandardMBean implements Statist
 		return count;
 	}
 
-	@Override
-	public List<EstimationResults> getAllPropertiesEstimation() {
-		// Read from the count index, deserialize and then report the estimated count of
-		NodeState root = store.getRoot();
-		NodeState indexNode = root.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME)
-				.getChildNode(STATISTICS_INDEX_NAME).getChildNode("properties");
-
-		List<EstimationResults> propertyCounts = new ArrayList<>();
-
-		for (ChildNodeEntry child : indexNode.getChildNodeEntries()) {
-			NodeState childNode = child.getNodeState();
-			long count = childNode.getProperty("count").getValue(Type.LONG);
-			String uniqueHll = childNode.getProperty("uniqueHLL").getValue(Type.STRING);
-			byte[] hll = HyperLogLog.deserialize(uniqueHll);
-			HyperLogLog hllObj = new HyperLogLog(hll.length, hll);
-
-			propertyCounts.add(new EstimationResults(count, hllObj.estimate()));
-		}
-
-		return propertyCounts;
-
-	}
 }
