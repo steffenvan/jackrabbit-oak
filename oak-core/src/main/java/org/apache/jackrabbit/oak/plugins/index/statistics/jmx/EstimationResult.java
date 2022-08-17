@@ -1,16 +1,16 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 
 class EstimationResult {
-	private final long hllCount;
 	private final long count;
+	private final long hllCount;
 
-	EstimationResult(long hllCount, long count) {
-		this.hllCount = hllCount;
+	EstimationResult(long count, long hllCount) {
 		this.count = count;
+		this.hllCount = hllCount;
 	}
 
 	@Override
 	public String toString() {
-		return "hllCount: " + this.hllCount + "count: " + this.count;
+		return "count: " + this.count + " | " + "hllCount: " + this.hllCount;
 	}
 }
