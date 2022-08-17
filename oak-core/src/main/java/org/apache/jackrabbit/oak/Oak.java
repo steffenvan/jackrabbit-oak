@@ -83,8 +83,8 @@ import org.apache.jackrabbit.oak.plugins.index.property.jmx.PropertyIndexAsyncRe
 import org.apache.jackrabbit.oak.plugins.index.reference.ReferenceEditorProvider;
 import org.apache.jackrabbit.oak.plugins.index.reference.ReferenceIndexProvider;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditorProvider;
-import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.StatisticsCounter;
-import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.StatisticsMBean;
+import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.ContentStatistics;
+import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.ContentStatisticsMBean;
 import org.apache.jackrabbit.oak.plugins.itemsave.ItemSaveValidatorProvider;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
 import org.apache.jackrabbit.oak.plugins.name.NameValidatorProvider;
@@ -748,7 +748,7 @@ public class Oak {
 					"nodeCounter"));
 		}
 
-		regs.add(registerMBean(whiteboard, StatisticsMBean.class, new StatisticsCounter(store), StatisticsMBean.TYPE,
+		regs.add(registerMBean(whiteboard, ContentStatisticsMBean.class, new ContentStatistics(store), ContentStatisticsMBean.TYPE,
 				"statisticsCounter"));
 		regs.add(registerMBean(whiteboard, QueryEngineSettingsMBean.class, queryEngineSettings,
 				QueryEngineSettingsMBean.TYPE, "settings"));

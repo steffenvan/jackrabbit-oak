@@ -5,8 +5,8 @@ import java.util.List;
 import org.apache.jackrabbit.oak.api.jmx.Description;
 import org.apache.jackrabbit.oak.api.jmx.Name;
 
-public interface StatisticsMBean {
-	String TYPE = "Statistics";
+public interface ContentStatisticsMBean {
+	String TYPE = "ContentStatistics";
 
 	/**
 	 * Get the estimated statistics of a single property.
