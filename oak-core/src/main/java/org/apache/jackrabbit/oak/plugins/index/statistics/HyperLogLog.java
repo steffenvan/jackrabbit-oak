@@ -48,16 +48,16 @@ public class HyperLogLog implements CardinalityEstimator {
 			}
 		}
 
-		double estimate = 1 / am * m * m * sum;
+		long estimate = (long) (1. / sum * m * m * am);
 
 		if (estimate <= 5 * m && numZeroes > 0) {
 			estimate = linearCount(numZeroes);
 		}
-		return (long) Math.max(1, estimate);
+		return Math.max(1, estimate);
 	}
 
-	private double linearCount(int numZeroes) {
-		return m * Math.log((double) m / numZeroes);
+	private long linearCount(int numZeroes) {
+		return (long) (m * Math.log(m / numZeroes));
 	}
 
 	byte[] getCounts() {
