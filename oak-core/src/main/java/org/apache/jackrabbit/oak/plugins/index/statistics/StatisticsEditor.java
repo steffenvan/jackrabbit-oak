@@ -2,6 +2,7 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
@@ -111,14 +112,24 @@ public class StatisticsEditor implements Editor {
 
 		for (Map.Entry<String, PropertyStatistics> e : propertyStatistics.entrySet()) {
 			NodeBuilder statNode = properties.child(e.getKey());
+			PropertyStatistics propStats = e.getValue();
 
 			setPrimaryType(statNode);
-			statNode.setProperty("count", e.getValue().getCount());
+			statNode.setProperty("count", propStats.getCount());
 
-			String hllSerialized = e.getValue().getHll().serialize();
+			String hllSerialized = propStats.getHll().serialize();
 			// TODO: consider using HyperLogLog4TailCut64 so that we only store a long
-			// rather than array.
+			// rather than array
 			statNode.setProperty(PROPERTY_HLL_NAME, hllSerialized);
+			String topElements = propStats.getSortedTopKElements();
+			if (!topElements.isEmpty()) {
+				statNode.setProperty("topKElements", topElements);
+			}
+//			long[] topKCounts = propStats.getTopKCounts();
+//			String[] topKValues = propStats.getTopKValues();
+//			statNode.setProperty("topKValues", Arrays.toString(topKCounts));
+//			statNode.setProperty("topKCounts", topKCounts);
+
 		}
 		propertyStatistics.clear();
 	}
@@ -166,12 +177,15 @@ public class StatisticsEditor implements Editor {
 		if (ps == null) {
 			ps = readPropertyStatistics(propertyName);
 			if (ps == null) {
-				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64));
+				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64), new CountMinSketch(0.01, 0.99),
+						new TopKElements(new HashMap<>()));
 			}
 		}
 		long hash64 = Hash.hash64((val.hashCode()));
 		ps.updateHll(hash64);
+		ps.updateTopElements(propertyName);
 		propertyStatistics.put(propertyName, ps);
+//		ps.updateValueCounts(hash64);
 		ps.inc(1);
 	}
 
@@ -196,11 +210,60 @@ public class StatisticsEditor implements Editor {
 			return null;
 		}
 
+//		PropertyState topKValues = prop.getProperty("topKValues");
+//		if (topKValues == null) {
+//			return null;
+//		}
+//
+//		PropertyState topKCounts = prop.getProperty("topKCounts");
+//		if (topKCounts == null) {
+//			return null;
+//		}
+
+		PropertyState topKElementsProp = prop.getProperty("topKElements");
+		if (topKElementsProp == null) {
+			return null;
+		}
+
 		long c = count.getValue(Type.LONG);
 		PropertyState hps = prop.getProperty("uniqueHLL");
 		String hpsIndexed = hps.getValue(Type.STRING);
 		byte[] hllData = HyperLogLog.deserialize(hpsIndexed);
-		return new PropertyStatistics(propertyName, c, new HyperLogLog(64, hllData));
+
+//		@NotNull
+//		Iterable<Long> topKCountsIndexed = topKCounts.getValue(Type.LONGS);
+//		String[] topKValuesIndexed = topKValues.getValue(Type.STRING).split("\\s+");
+		String topKElementsIdx = topKElementsProp.getValue(Type.STRING);
+		Map<String, Long> valuesToCounts = TopKElements.deserialize(topKElementsIdx);
+//		long numCountValues = length(topKCountsIndexed);
+//		assert numCountValues == topKValuesIndexed.length;
+
+//		Map<String, Long> valueToCounts = getValueToCount(topKValuesIndexed, topKCountsIndexed, numCountValues);
+		TopKElements topKElements = new TopKElements(valuesToCounts);
+//		TopKElements topKElements = new TopKElements(topKValuesIndexed, topKCountsIndexed, numCountValues);
+
+		return new PropertyStatistics(propertyName, c, new HyperLogLog(64, hllData), new CountMinSketch(0.01, 0.99),
+				topKElements);
+	}
+
+	private long length(Iterable<? extends Object> iterable) {
+		long count = 0;
+		for (Object o : iterable) {
+			count++;
+		}
+
+		return count;
+	}
+
+	// assume that topCounts and topValues are sorted in the right order
+	private Map<String, Long> getValueToCount(String[] topValues, Iterable<Long> topCounts, long numCounts) {
+		Map<String, Long> valueToCounts = new HashMap<>();
+		int i = 0;
+		for (Long count : topCounts) {
+			valueToCounts.put(topValues[i], count);
+			i++;
+		}
+		return valueToCounts;
 	}
 
 	@Override
