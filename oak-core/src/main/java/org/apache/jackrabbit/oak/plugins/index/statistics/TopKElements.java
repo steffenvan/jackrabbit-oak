@@ -9,42 +9,32 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 public class TopKElements {
-	Iterable<Long> counts;
-	String[] values;
-	Map<String, Long> valuesToCounts;
+	private Map<String, Long> valuesToCounts;
+	private final int k;
 
-	TopKElements(String[] topValues, Iterable<Long> topCounts, long numCounts) {
-		this.counts = topCounts;
-		this.values = topValues;
-//		this.elements = createMinHeap(topValues, topCounts, numCounts);
-	}
-
-	TopKElements(Map<String, Long> valuesToCounts) {
+	TopKElements(Map<String, Long> valuesToCounts, int k) {
 		this.valuesToCounts = valuesToCounts;
+		this.k = k;
 	}
 
-	List<PropertyInfo> getAllSorted() {
-		List<PropertyInfo> elements = new ArrayList<>();
-//		PriorityQueue/<PropertyInfo> elements = new PriorityQueue<>(Comparator.comparingLong(PropertyInfo::getCount));
+	private List<PropertyInfo> getAllSorted() {
+		List<PropertyInfo> propertyInfos = new ArrayList<>();
 		for (Entry<String, Long> e : valuesToCounts.entrySet()) {
-			PropertyInfo propInfo = new PropertyInfo(e.getKey(), e.getValue());
-			elements.add(propInfo);
+			PropertyInfo pi = new PropertyInfo(e.getKey(), e.getValue());
+			propertyInfos.add(pi);
 		}
-		elements.sort(Comparator.comparing(PropertyInfo::getCount));
 
-		return elements;
+		propertyInfos.sort(Comparator.comparing(PropertyInfo::getCount).reversed());
+		int idx = Math.min(propertyInfos.size(), k);
+		return propertyInfos.subList(0, idx);
 	}
-
-//	public boolean contains(String name) {
-//		return Arrays.stream(values).anyMatch(name::equals);
-//	}
 
 	boolean isEmpty() {
 		return valuesToCounts.isEmpty();
 	}
 
-	void update(String name, long count) {
-		valuesToCounts.computeIfPresent(name, (k, v) -> v + count);
+	void update(Object val, long count) {
+		valuesToCounts.put(val.toString(), count);
 	}
 
 	public boolean contains(String name) {
@@ -69,19 +59,27 @@ public class TopKElements {
 		valuesToCounts.remove(minElementName);
 	}
 
-	public void add(String name, long count) {
-		valuesToCounts.put(name, count);
-	}
-
 	public long minElement() {
 		return Collections.min(valuesToCounts.values());
 	}
 
+	public void clear() {
+		valuesToCounts.clear();
+	}
+
 	public String serialize() {
-		StringBuilder sb = new StringBuilder();
 		List<PropertyInfo> sortedElements = getAllSorted();
-		for (PropertyInfo pi : sortedElements) {
-			sb.append(pi.toString());
+		StringBuilder sb = new StringBuilder();
+
+		if (sortedElements.isEmpty()) {
+			return "";
+		}
+
+		int idx = Math.min(sortedElements.size(), k);
+
+		for (int i = 0; i < idx; i++) {
+			String el = sortedElements.get(i).toString();
+			sb.append(el);
 			sb.append(" ");
 		}
 

@@ -5,6 +5,9 @@ public class PropertyStatistics {
 	private final String name;
 	private long count;
 	private CountMinSketch valueSketch;
+
+//	PriorityQueue<PropertyInfo> topElements;
+//	private Map<String, Long> valuesToCounts;
 	private TopKElements topKElements;
 	private HyperLogLog hll;
 
@@ -20,43 +23,21 @@ public class PropertyStatistics {
 		this(name, count, hll);
 		this.valueSketch = valueSketch;
 		this.topKElements = topKElements;
+//		this.valuesToCounts = valuesToCounts;
 	}
 
 	void updateHll(long hash) {
 		hll.add(hash);
 	}
 
-	void updateValueCounts(long hash) {
+	void updateValueCounts(Object val, long hash) {
 		valueSketch.add(hash);
+		topKElements.update(val, valueSketch.estimateCount(hash));
 	}
 
 	String getSortedTopKElements() {
-		if (topKElements.isEmpty()) {
-			return "";
-		}
-		if (topKElements.contains(name)) {
-			// update existing value and its corresponding count
-			topKElements.update(name, count);
-		} else if (topKElements.minElement() < count) {
-			// it does not exist in the topKElements and we should replace it.
-			topKElements.removeMinElement();
-			topKElements.add(name, count);
-		}
-
-//		List<PropertyInfo> sortedElements = topKElements.getAllSorted();
-
 		return topKElements.serialize();
-//		for (Long l : topKCounts) {
-//			res.add(l);
-//		}
-
-//
-//		return Arrays.copyOf(topKCounts, topKCounts.length);
 	}
-
-//	String[] getTopKValues() {
-//		return Arrays.stream(topKValues).toArray(String[]::new);
-//	}
 
 	String[] readTopKValues(String storedValues) {
 		return new String[10];
@@ -64,6 +45,14 @@ public class PropertyStatistics {
 
 	long getCount() {
 		return count;
+	}
+
+	void clear() {
+		topKElements.clear();
+	}
+
+	String getName() {
+		return name;
 	}
 
 	HyperLogLog getHll() {
@@ -74,9 +63,4 @@ public class PropertyStatistics {
 		this.count += count;
 	}
 
-	public void updateTopElements(String propertyName) {
-		// TODO Auto-generated method stub
-		topKElements.update(propertyName, 1);
-
-	}
 }
