@@ -1,5 +1,7 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import java.util.List;
+
 public class PropertyStatistics {
 
 	private final String name;
@@ -23,7 +25,6 @@ public class PropertyStatistics {
 		this(name, count, hll);
 		this.valueSketch = valueSketch;
 		this.topKElements = topKElements;
-//		this.valuesToCounts = valuesToCounts;
 	}
 
 	void updateHll(long hash) {
@@ -35,12 +36,8 @@ public class PropertyStatistics {
 		topKElements.update(val, valueSketch.estimateCount(hash));
 	}
 
-	String getSortedTopKElements() {
-		return topKElements.serialize();
-	}
-
-	String[] readTopKValues(String storedValues) {
-		return new String[10];
+	List<PropertyInfo> getTopKValuesDescending() {
+		return topKElements.get();
 	}
 
 	long getCount() {
@@ -48,7 +45,7 @@ public class PropertyStatistics {
 	}
 
 	void clear() {
-		topKElements.clear();
+//		topKElements.clear();
 	}
 
 	String getName() {

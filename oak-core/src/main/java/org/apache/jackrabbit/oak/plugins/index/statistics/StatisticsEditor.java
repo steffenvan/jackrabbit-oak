@@ -3,7 +3,10 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.api.PropertyState;
@@ -14,6 +17,7 @@ import org.apache.jackrabbit.oak.spi.commit.Editor;
 import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,10 +33,10 @@ public class StatisticsEditor implements Editor {
 	public static final int K_ELEMENTS = 5;
 	public static final String PROPERTY_CMS_NAME = "propertiesCountMinSketch";
 	public static final String PROPERTY_HLL_NAME = "uniqueHLL";
-	public static final String PROPERTY_TOPK_NAME = "mostFrequentElements";
+	public static final String PROPERTY_TOPK_NAME = "mostFrequentValueNames";
+	public static final String PROPERTY_TOPK_COUNT = "mostFrequentValueCounts";
 
 	private final CountMinSketch propertyNameCMS;
-	private TopKElements topKElements;
 	private Map<String, PropertyStatistics> propertyStatistics;
 	private final StatisticsRoot root;
 	private final StatisticsEditor parent;
@@ -124,14 +128,20 @@ public class StatisticsEditor implements Editor {
 			// TODO: consider using HyperLogLog4TailCut64 so that we only store a long
 			// rather than array
 			statNode.setProperty(PROPERTY_HLL_NAME, hllSerialized);
-			String topElements = propStats.getSortedTopKElements();
-			if (!topElements.isEmpty() && !topElements.equals("[]")) {
-				statNode.setProperty("topKElements", topElements);
+			List<PropertyInfo> topKElements = propStats.getTopKValuesDescending();
+			if (!topKElements.isEmpty()) {
+				List<String> valueNames = getByFieldName(topKElements, PropertyInfo::getName);
+				List<Long> valueCounts = getByFieldName(topKElements, PropertyInfo::getCount);
+				statNode.setProperty(PROPERTY_TOPK_NAME, valueNames, Type.STRINGS);
+				statNode.setProperty(PROPERTY_TOPK_COUNT, valueCounts, Type.LONGS);
 			}
-			propStats.clear();
 		}
 
 		propertyStatistics.clear();
+	}
+
+	private <T> List<T> getByFieldName(List<PropertyInfo> propertyInfos, Function<PropertyInfo, T> field) {
+		return propertyInfos.stream().map(field).collect(Collectors.toList());
 	}
 
 	private static void setPrimaryType(NodeBuilder builder) {
@@ -214,48 +224,30 @@ public class StatisticsEditor implements Editor {
 			return null;
 		}
 
-		PropertyState topKElementsProp = prop.getProperty("topKElements");
-//		if (topKElementsProp == null) {
-//			return null;
-//		}
-
 		long c = count.getValue(Type.LONG);
 		PropertyState hps = prop.getProperty("uniqueHLL");
 		String hpsIndexed = hps.getValue(Type.STRING);
 		byte[] hllData = HyperLogLog.deserialize(hpsIndexed);
 
-		TopKElements topKElements = null;
-		if (topKElementsProp != null) {
-			String topKElementsIdx = topKElementsProp.getValue(Type.STRING);
-			Map<String, Long> valuesToCounts = TopKElements.deserialize(topKElementsIdx);
-			topKElements = new TopKElements(valuesToCounts, K_ELEMENTS);
-		} else {
-			topKElements = new TopKElements(new HashMap<>(), K_ELEMENTS);
-		}
-//		TopKElements topKElements = new TopKElements(topKValuesIndexed, topKCountsIndexed, numCountValues);
+		PropertyState topKValueNames = prop.getProperty(PROPERTY_TOPK_NAME);
+		PropertyState topKValueCounts = prop.getProperty(PROPERTY_TOPK_COUNT);
+		TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts);
 
 		return new PropertyStatistics(propertyName, c, new HyperLogLog(64, hllData), new CountMinSketch(0.01, 0.99),
 				topKElements);
 	}
 
-	private long length(Iterable<? extends Object> iterable) {
-		long count = 0;
-		for (Object o : iterable) {
-			count++;
+	private TopKElements readTopKElements(PropertyState valueNames, PropertyState valueCounts) {
+		if (valueNames != null && valueCounts != null) {
+			@NotNull
+			Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
+			@NotNull
+			Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
+			Map<String, Long> valuesToCounts = TopKElements.deserialize(valueNamesIter, valueCountsIter);
+			return new TopKElements(valuesToCounts, K_ELEMENTS);
 		}
 
-		return count;
-	}
-
-	// assume that topCounts and topValues are sorted in the right order
-	private Map<String, Long> getValueToCount(String[] topValues, Iterable<Long> topCounts, long numCounts) {
-		Map<String, Long> valueToCounts = new HashMap<>();
-		int i = 0;
-		for (Long count : topCounts) {
-			valueToCounts.put(topValues[i], count);
-			i++;
-		}
-		return valueToCounts;
+		return new TopKElements(new HashMap<>(), K_ELEMENTS);
 	}
 
 	@Override
