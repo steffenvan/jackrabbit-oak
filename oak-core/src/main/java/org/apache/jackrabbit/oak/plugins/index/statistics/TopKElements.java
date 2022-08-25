@@ -47,7 +47,7 @@ public class TopKElements {
 
 	@Override
 	public String toString() {
-		List<PropertyInfo> topKSortedValues = serialize();
+		List<PropertyInfo> topKSortedValues = get();
 		StringBuilder sb = new StringBuilder();
 
 		for (PropertyInfo pi : topKSortedValues) {

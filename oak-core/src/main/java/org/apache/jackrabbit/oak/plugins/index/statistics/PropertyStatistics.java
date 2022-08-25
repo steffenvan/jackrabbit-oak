@@ -7,9 +7,6 @@ public class PropertyStatistics {
 	private final String name;
 	private long count;
 	private CountMinSketch valueSketch;
-
-//	PriorityQueue<PropertyInfo> topElements;
-//	private Map<String, Long> valuesToCounts;
 	private TopKElements topKElements;
 	private HyperLogLog hll;
 
@@ -42,10 +39,6 @@ public class PropertyStatistics {
 
 	long getCount() {
 		return count;
-	}
-
-	void clear() {
-//		topKElements.clear();
 	}
 
 	String getName() {
