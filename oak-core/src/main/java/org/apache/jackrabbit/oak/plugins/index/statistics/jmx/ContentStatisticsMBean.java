@@ -14,19 +14,21 @@ public interface ContentStatisticsMBean {
 	 * @param name - the property for which to get statistics from
 	 * @return
 	 */
-	@Description("Get the estimated number of properties of the specified property")
-	EstimationResult getSinglePropertyEstimation(@Description("the path") @Name("name") String name);
+	@Description("Returns an estimation of the cardinality and count of the given property name")
+	EstimationResult getSinglePropertyEstimation(@Description("the property name") @Name("name") String name);
 
 	/**
 	 * Get the estimated number of statistics for all indexed properties.
 	 * 
 	 * @return
 	 */
-	@Description("Get the estimated number of all indexed properties")
+	@Description("Get the estimated number of all properties and their cardinality.")
 	List<EstimationResult> getAllPropertiesEstimation();
 
-	@Description("Get the estimated number property entries for this specific")
-	long getEstimatedPropertyCount(String name);
+	@Description("Get the estimated number of entries of the given property name")
+	long getEstimatedPropertyCount(@Description("the property name") @Name("name") String name);
+
+	List<String> getIndexedPropertyNames();
 
 //	long get
 	// method for single property
