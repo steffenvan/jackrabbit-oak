@@ -1,6 +1,7 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 
 import java.util.List;
+import java.util.Set;
 
 import org.apache.jackrabbit.oak.api.jmx.Description;
 import org.apache.jackrabbit.oak.api.jmx.Name;
@@ -28,7 +29,7 @@ public interface ContentStatisticsMBean {
 	@Description("Get the estimated number of entries of the given property name")
 	long getEstimatedPropertyCount(@Description("the property name") @Name("name") String name);
 
-	List<String> getIndexedPropertyNames();
+	Set<String> getIndexedPropertyNames();
 
 //	long get
 	// method for single property

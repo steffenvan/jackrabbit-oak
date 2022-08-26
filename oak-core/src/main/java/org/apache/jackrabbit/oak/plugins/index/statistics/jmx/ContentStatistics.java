@@ -2,6 +2,8 @@ package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
@@ -16,9 +18,12 @@ import org.apache.jackrabbit.oak.spi.state.ChildNodeEntry;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ContentStatistics extends AnnotatedStandardMBean implements ContentStatisticsMBean {
 
+	private static final Logger LOG = LoggerFactory.getLogger(ContentStatistics.class);
 	private NodeStore store;
 	public static final String STATISTICS_INDEX_NAME = "statistics";
 	private static final String INDEX_RULES = "indexRules";
@@ -126,11 +131,11 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 	}
 
 	@Override
-	public List<String> getIndexedPropertyNames() {
+	public Set<String> getIndexedPropertyNames() {
 		NodeState root = store.getRoot();
 		// oak:index
 		NodeState indexNode = root.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
-		List<PropertyState> propStates = new ArrayList<>();
+		Set<String> propStates = new TreeSet<>();
 
 		for (ChildNodeEntry child : indexNode.getChildNodeEntries()) {
 			NodeState c = child.getNodeState();
@@ -139,15 +144,25 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 				if (propertyNode.exists()) {
 					for (ChildNodeEntry ce : propertyNode.getChildNodeEntries()) {
 						NodeState childNode = ce.getNodeState();
-						if (childNode.exists() && childNode.hasProperty("name")) {
-							propStates.add(propertyNode.getProperty("name"));
+						if (isValidPropertyNameNode(childNode)) {
+							String propertyName = parse(childNode.getProperty("name").getValue(Type.STRING));
+							propStates.add(propertyName);
 						}
 					}
 				}
 			}
 		}
 
-		return fromPropertyStates(propStates);
+		return propStates;
+	}
+
+	private boolean isRegExp(NodeState nodeState) {
+		PropertyState regExp = nodeState.getProperty("isRegExp");
+		return regExp != null && regExp.getValue(Type.BOOLEAN);
+	}
+
+	private boolean isValidPropertyNameNode(NodeState nodeState) {
+		return nodeState.exists() && nodeState.hasProperty("name") && !isRegExp(nodeState);
 	}
 
 	// start with indexRules node
@@ -167,19 +182,12 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 		return EmptyNodeState.MISSING_NODE;
 	}
 
-	private List<String> fromPropertyStates(List<PropertyState> propStates) {
-		List<String> indexedPropertyNames = new ArrayList<>();
-		for (PropertyState ps : propStates) {
-			String propertyName = ps.getValue(Type.STRING);
-			if (propertyName.contains("/")) {
-				String[] parts = propertyName.split("/");
-				indexedPropertyNames.add(parts[parts.length - 1]);
-			} else {
-				indexedPropertyNames.add(propertyName);
-			}
+	private String parse(String propertyName) {
+		if (propertyName.contains("/")) {
+			String[] parts = propertyName.split("/");
+			return parts[parts.length - 1];
 		}
-
-		return indexedPropertyNames;
+		return propertyName;
 	}
 
 	private int getNumCols(Iterable<? extends PropertyState> properties) {
