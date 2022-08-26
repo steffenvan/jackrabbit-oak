@@ -28,7 +28,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 	public static final String STATISTICS_INDEX_NAME = "statistics";
 	private static final String INDEX_RULES = "indexRules";
 	private static final String PROPERTY_NAME = "name";
-	private static final String VIRTUAL_PROPERTY_NAME = "nodeName";
+	private static final String VIRTUAL_PROPERTY_NAME = ":nodeName";
 	private static final String PROPERTIES = "properties";
 
 	public ContentStatistics(NodeStore store) {
