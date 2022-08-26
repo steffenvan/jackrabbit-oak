@@ -27,6 +27,9 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 	private NodeStore store;
 	public static final String STATISTICS_INDEX_NAME = "statistics";
 	private static final String INDEX_RULES = "indexRules";
+	private static final String PROPERTY_NAME = "name";
+	private static final String VIRTUAL_PROPERTY_NAME = "nodeName";
+	private static final String PROPERTIES = "properties";
 
 	public ContentStatistics(NodeStore store) {
 		super(ContentStatisticsMBean.class);
@@ -44,7 +47,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 		if (statisticsDataNode == null) {
 			return null;
 		}
-		NodeState property = statisticsDataNode.getChildNode("properties").getChildNode(name);
+		NodeState property = statisticsDataNode.getChildNode(PROPERTIES).getChildNode(name);
 		if (property == null) {
 			return null;
 		}
@@ -109,7 +112,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 		if (statisticsDataNode == null) {
 			return null;
 		}
-		NodeState properties = statisticsDataNode.getChildNode("properties");
+		NodeState properties = statisticsDataNode.getChildNode(PROPERTIES);
 		if (properties == null) {
 			return null;
 		}
@@ -145,7 +148,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 					for (ChildNodeEntry ce : propertyNode.getChildNodeEntries()) {
 						NodeState childNode = ce.getNodeState();
 						if (isValidPropertyNameNode(childNode)) {
-							String propertyName = parse(childNode.getProperty("name").getValue(Type.STRING));
+							String propertyName = parse(childNode.getProperty(PROPERTY_NAME).getValue(Type.STRING));
 							propStates.add(propertyName);
 						}
 					}
@@ -157,12 +160,13 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 	}
 
 	private boolean isRegExp(NodeState nodeState) {
-		PropertyState regExp = nodeState.getProperty("isRegExp");
+		PropertyState regExp = nodeState.getProperty("isRegexp");
 		return regExp != null && regExp.getValue(Type.BOOLEAN);
 	}
 
 	private boolean isValidPropertyNameNode(NodeState nodeState) {
-		return nodeState.exists() && nodeState.hasProperty("name") && !isRegExp(nodeState);
+		return nodeState.exists() && nodeState.hasProperty(PROPERTY_NAME) && !isRegExp(nodeState)
+				&& !nodeState.getProperty(PROPERTY_NAME).getValue(Type.STRING).equals(VIRTUAL_PROPERTY_NAME);
 	}
 
 	// start with indexRules node
@@ -171,8 +175,8 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 			return EmptyNodeState.MISSING_NODE;
 		}
 
-		if (nodeState.hasChildNode("properties")) {
-			return nodeState.getChildNode("properties");
+		if (nodeState.hasChildNode(PROPERTIES)) {
+			return nodeState.getChildNode(PROPERTIES);
 		}
 
 		for (ChildNodeEntry c : nodeState.getChildNodeEntries()) {
