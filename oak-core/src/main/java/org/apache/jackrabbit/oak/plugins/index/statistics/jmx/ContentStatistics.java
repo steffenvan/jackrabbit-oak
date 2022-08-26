@@ -147,7 +147,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 				if (propertyNode.exists()) {
 					for (ChildNodeEntry ce : propertyNode.getChildNodeEntries()) {
 						NodeState childNode = ce.getNodeState();
-						if (isValidPropertyNameNode(childNode)) {
+						if (hasValidPropertyNameNode(childNode)) {
 							String propertyName = parse(childNode.getProperty(PROPERTY_NAME).getValue(Type.STRING));
 							propStates.add(propertyName);
 						}
@@ -164,7 +164,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 		return regExp != null && regExp.getValue(Type.BOOLEAN);
 	}
 
-	private boolean isValidPropertyNameNode(NodeState nodeState) {
+	private boolean hasValidPropertyNameNode(NodeState nodeState) {
 		return nodeState.exists() && nodeState.hasProperty(PROPERTY_NAME) && !isRegExp(nodeState)
 				&& !nodeState.getProperty(PROPERTY_NAME).getValue(Type.STRING).equals(VIRTUAL_PROPERTY_NAME);
 	}
