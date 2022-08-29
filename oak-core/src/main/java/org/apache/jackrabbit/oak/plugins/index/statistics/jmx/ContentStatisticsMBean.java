@@ -29,7 +29,13 @@ public interface ContentStatisticsMBean {
 	@Description("Get the estimated number of entries of the given property name")
 	long getEstimatedPropertyCount(@Description("the property name") @Name("name") String name);
 
+	// TODO: Update this @Description("Get the estimated number of entries of the
+	// given property name")
 	Set<String> getIndexedPropertyNames();
+
+	// TODO: Update this @Description("Get the estimated number of entries of the
+	// given property name")
+	Set<String> getIndexedPropertyNamesForSingleIndex(String name);
 
 //	long get
 	// method for single property

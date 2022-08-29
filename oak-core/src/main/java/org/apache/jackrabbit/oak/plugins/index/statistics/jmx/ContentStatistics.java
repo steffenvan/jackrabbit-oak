@@ -140,10 +140,10 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 		NodeState indexNode = root.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
 		Set<String> propStates = new TreeSet<>();
 
-		for (ChildNodeEntry child : indexNode.getChildNodeEntries()) {
-			NodeState c = child.getNodeState();
-			if (c.getChildNode(INDEX_RULES).exists()) {
-				NodeState propertyNode = getPropertiesNode(c.getChildNode(INDEX_RULES));
+		for (ChildNodeEntry entry : indexNode.getChildNodeEntries()) {
+			NodeState child = entry.getNodeState();
+			if (child.hasChildNode(INDEX_RULES)) {
+				NodeState propertyNode = getPropertiesNode(child.getChildNode(INDEX_RULES));
 				if (propertyNode.exists()) {
 					for (ChildNodeEntry ce : propertyNode.getChildNodeEntries()) {
 						NodeState childNode = ce.getNodeState();
@@ -156,6 +156,33 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 			}
 		}
 
+		return propStates;
+	}
+
+	@Override
+	public Set<String> getIndexedPropertyNamesForSingleIndex(String name) {
+		NodeState root = store.getRoot();
+		// oak:index
+		NodeState indexNode = root.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
+		NodeState child = indexNode.getChildNode(name);
+
+		return getIndexedProperties(child);
+	}
+
+	private Set<String> getIndexedProperties(NodeState nodeState) {
+		Set<String> propStates = new TreeSet<>();
+		if (nodeState.hasChildNode(INDEX_RULES)) {
+			NodeState propertyNode = getPropertiesNode(nodeState.getChildNode(INDEX_RULES));
+			if (propertyNode.exists()) {
+				for (ChildNodeEntry ce : propertyNode.getChildNodeEntries()) {
+					NodeState childNode = ce.getNodeState();
+					if (hasValidPropertyNameNode(childNode)) {
+						String propertyName = parse(childNode.getProperty(PROPERTY_NAME).getValue(Type.STRING));
+						propStates.add(propertyName);
+					}
+				}
+			}
+		}
 		return propStates;
 	}
 
