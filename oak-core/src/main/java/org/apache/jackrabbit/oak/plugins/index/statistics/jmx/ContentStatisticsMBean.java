@@ -1,6 +1,7 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.jackrabbit.oak.api.jmx.Description;
@@ -31,20 +32,9 @@ public interface ContentStatisticsMBean {
 
 	// TODO: Update this @Description("Get the estimated number of entries of the
 	// given property name")
-	Set<String> getIndexedPropertyNames();
+	Map<String, Set<String>> getIndexedPropertyNames();
 
 	// TODO: Update this @Description("Get the estimated number of entries of the
 	// given property name")
 	Set<String> getIndexedPropertyNamesForSingleIndex(String name);
-
-//	long get
-	// method for single property
-	// method for all properties sorted by frequency
-	// method for getting properties ordered by name
-	// e.g createdBy and created are shown alphabetically
-	//
-
-	// getPropertyByName
-	// getPropertyByCount
-
 }

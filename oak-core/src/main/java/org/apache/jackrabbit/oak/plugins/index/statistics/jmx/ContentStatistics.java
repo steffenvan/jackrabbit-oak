@@ -1,7 +1,9 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -38,11 +40,6 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
 	@Override
 	public EstimationResult getSinglePropertyEstimation(String name) {
-		// get children of statistics index
-		// extract the child with the specified name.
-		// deserialize the statistics information stored in the node
-		// return the result
-
 		NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
 		if (statisticsDataNode == null) {
 			return null;
@@ -107,7 +104,6 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
 	@Override
 	public List<EstimationResult> getAllPropertiesEstimation() {
-		// Read from the count index, deserialize and then report the estimated count of
 		NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
 		if (statisticsDataNode == null) {
 			return null;
@@ -134,29 +130,11 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 	}
 
 	@Override
-	public Set<String> getIndexedPropertyNames() {
+	public Map<String, Set<String>> getIndexedPropertyNames() {
 		NodeState root = store.getRoot();
 		// oak:index
 		NodeState indexNode = root.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
-		Set<String> propStates = new TreeSet<>();
-
-		for (ChildNodeEntry entry : indexNode.getChildNodeEntries()) {
-			NodeState child = entry.getNodeState();
-			if (child.hasChildNode(INDEX_RULES)) {
-				NodeState propertyNode = getPropertiesNode(child.getChildNode(INDEX_RULES));
-				if (propertyNode.exists()) {
-					for (ChildNodeEntry ce : propertyNode.getChildNodeEntries()) {
-						NodeState childNode = ce.getNodeState();
-						if (hasValidPropertyNameNode(childNode)) {
-							String propertyName = parse(childNode.getProperty(PROPERTY_NAME).getValue(Type.STRING));
-							propStates.add(propertyName);
-						}
-					}
-				}
-			}
-		}
-
-		return propStates;
+		return getIndexedPropertyNames(indexNode);
 	}
 
 	@Override
@@ -167,6 +145,17 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 		NodeState child = indexNode.getChildNode(name);
 
 		return getIndexedProperties(child);
+	}
+
+	private Map<String, Set<String>> getIndexedPropertyNames(NodeState indexNode) {
+		Map<String, Set<String>> propStatesToIndexedNames = new HashMap<>();
+		for (ChildNodeEntry entry : indexNode.getChildNodeEntries()) {
+			NodeState child = entry.getNodeState();
+			if (child.exists()) {
+				propStatesToIndexedNames.put(entry.getName(), getIndexedProperties(child));
+			}
+		}
+		return propStatesToIndexedNames;
 	}
 
 	private Set<String> getIndexedProperties(NodeState nodeState) {
