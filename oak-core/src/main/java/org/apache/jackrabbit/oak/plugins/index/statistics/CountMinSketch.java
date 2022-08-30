@@ -1,5 +1,6 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
@@ -42,8 +43,20 @@ public class CountMinSketch implements FrequencyCounter {
 		this.items = items;
 	}
 
+	public CountMinSketch(CountMinSketch cms) {
+		this(cms.getRows(), cms.getCols(), cms.getData());
+	}
+
 	void setSeed(int seed) {
 		RANDOM.setSeed(seed);
+	}
+
+	public int getRows() {
+		return this.rows;
+	}
+
+	public int getCols() {
+		return this.cols;
 	}
 
 	@Override
@@ -79,7 +92,7 @@ public class CountMinSketch implements FrequencyCounter {
 	}
 
 	public long[][] getData() {
-		return items;
+		return Arrays.stream(items).map(long[]::clone).toArray(long[][]::new);
 	}
 
 	public String[] serialize() {
