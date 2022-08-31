@@ -37,6 +37,10 @@ public class PropertyStatistics {
 		return topKElements.get();
 	}
 
+	CountMinSketch getValueSketch() {
+		return new CountMinSketch(valueSketch);
+	}
+
 	long getCount() {
 		return count;
 	}
