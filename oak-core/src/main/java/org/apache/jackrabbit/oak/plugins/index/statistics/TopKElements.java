@@ -11,7 +11,7 @@ public class TopKElements {
 	private Map<String, Long> valuesToCounts;
 	private final int k;
 
-	TopKElements(Map<String, Long> valuesToCounts, int k) {
+	public TopKElements(Map<String, Long> valuesToCounts, int k) {
 		this.valuesToCounts = valuesToCounts;
 		this.k = k;
 	}
@@ -20,7 +20,7 @@ public class TopKElements {
 		valuesToCounts.put(val.toString(), count);
 	}
 
-	List<PropertyInfo> get() {
+	public List<PropertyInfo> get() {
 		List<PropertyInfo> propertyInfos = new ArrayList<>();
 		for (Map.Entry<String, Long> e : valuesToCounts.entrySet()) {
 			propertyInfos.add(new PropertyInfo(e.getKey(), e.getValue()));
@@ -33,7 +33,7 @@ public class TopKElements {
 		return propertyInfos.subList(0, topElementIdx);
 	}
 
-	static Map<String, Long> deserialize(Iterable<String> names, Iterable<Long> counts) {
+	public static Map<String, Long> deserialize(Iterable<String> names, Iterable<Long> counts) {
 		Map<String, Long> valuesToCounts = new HashMap<>();
 		Iterator<String> namesIter = names.iterator();
 		Iterator<Long> countsIter = counts.iterator();

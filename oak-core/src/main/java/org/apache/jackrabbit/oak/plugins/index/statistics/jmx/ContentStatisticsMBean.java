@@ -1,11 +1,11 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.jackrabbit.oak.api.jmx.Description;
 import org.apache.jackrabbit.oak.api.jmx.Name;
+import org.apache.jackrabbit.oak.plugins.index.statistics.PropertyInfo;
 
 public interface ContentStatisticsMBean {
 	String TYPE = "ContentStatistics";
@@ -32,9 +32,11 @@ public interface ContentStatisticsMBean {
 
 	// TODO: Update this @Description("Get the estimated number of entries of the
 	// given property name")
-	Map<String, Set<String>> getIndexedPropertyNames();
+	Set<String> getIndexedPropertyNames();
 
 	// TODO: Update this @Description("Get the estimated number of entries of the
 	// given property name")
 	Set<String> getIndexedPropertyNamesForSingleIndex(String name);
+
+	List<PropertyInfo> getTopKIndexedPropertiesForSingleProperty(String name, int k);
 }

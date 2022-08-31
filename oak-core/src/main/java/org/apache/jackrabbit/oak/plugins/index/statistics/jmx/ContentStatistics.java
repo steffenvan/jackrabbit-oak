@@ -14,7 +14,9 @@ import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
 import org.apache.jackrabbit.oak.plugins.index.statistics.CountMinSketch;
 import org.apache.jackrabbit.oak.plugins.index.statistics.Hash;
 import org.apache.jackrabbit.oak.plugins.index.statistics.HyperLogLog;
+import org.apache.jackrabbit.oak.plugins.index.statistics.PropertyInfo;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
+import org.apache.jackrabbit.oak.plugins.index.statistics.TopKElements;
 import org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState;
 import org.apache.jackrabbit.oak.spi.state.ChildNodeEntry;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
@@ -32,6 +34,8 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 	private static final String PROPERTY_NAME = "name";
 	private static final String VIRTUAL_PROPERTY_NAME = ":nodeName";
 	private static final String PROPERTIES = "properties";
+	private static final String PROPERTY_TOP_K_NAME = "mostFrequentValueNames";
+	private static final String PROPERTY_TOP_K_COUNT = "mostFrequentValueCounts";
 
 	public ContentStatistics(NodeStore store) {
 		super(ContentStatisticsMBean.class);
@@ -57,8 +61,8 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 	}
 
 	private NodeState getStatisticsIndexDataNodeOrNull() {
-		NodeState root = store.getRoot();
-		NodeState indexNode = root.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
+		NodeState indexNode = getIndexNode();
+
 		if (!indexNode.exists()) {
 			return null;
 		}
@@ -130,32 +134,61 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 	}
 
 	@Override
-	public Map<String, Set<String>> getIndexedPropertyNames() {
-		NodeState root = store.getRoot();
-		// oak:index
-		NodeState indexNode = root.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
-		return getIndexedPropertyNames(indexNode);
+	public Set<String> getIndexedPropertyNames() {
+		NodeState indexNode = getIndexNode();
+		Set<String> indexedPropertyNames = new TreeSet<>();
+		for (ChildNodeEntry entry : indexNode.getChildNodeEntries()) {
+			NodeState child = entry.getNodeState();
+			// TODO: this will take 2 * n iterations. Should we pass the set in as a
+			// reference and update it directly to reduce it to n iterations?
+			indexedPropertyNames.addAll(getIndexedProperties(child));
+		}
+
+		return indexedPropertyNames;
 	}
 
 	@Override
 	public Set<String> getIndexedPropertyNamesForSingleIndex(String name) {
-		NodeState root = store.getRoot();
-		// oak:index
-		NodeState indexNode = root.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
+		NodeState indexNode = getIndexNode();
 		NodeState child = indexNode.getChildNode(name);
 
 		return getIndexedProperties(child);
 	}
 
-	private Map<String, Set<String>> getIndexedPropertyNames(NodeState indexNode) {
-		Map<String, Set<String>> propStatesToIndexedNames = new HashMap<>();
-		for (ChildNodeEntry entry : indexNode.getChildNodeEntries()) {
-			NodeState child = entry.getNodeState();
-			if (child.exists()) {
-				propStatesToIndexedNames.put(entry.getName(), getIndexedProperties(child));
-			}
+	@Override
+	public List<PropertyInfo> getTopKIndexedPropertiesForSingleProperty(String name, int k) {
+		NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
+		NodeState properties = statisticsDataNode.getChildNode(PROPERTIES);
+		if (properties == null || !properties.hasChildNode(name)) {
+			return null;
 		}
-		return propStatesToIndexedNames;
+
+		NodeState propertyNode = properties.getChildNode(name);
+
+		PropertyState topKValueNames = propertyNode.getProperty(PROPERTY_TOP_K_NAME);
+		PropertyState topKValueCounts = propertyNode.getProperty(PROPERTY_TOP_K_COUNT);
+		TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, k);
+
+		return topKElements.get();
+	}
+
+	// TODO: create method for getting the estimation of the value themselves.
+	// jcr:primaryType for instance.
+	// if it's part of the top K, return
+	// otherwie use cms to estimate .
+	//
+
+	private TopKElements readTopKElements(PropertyState valueNames, PropertyState valueCounts, int k) {
+		if (valueNames != null && valueCounts != null) {
+			@NotNull
+			Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
+			@NotNull
+			Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
+			Map<String, Long> valuesToCounts = TopKElements.deserialize(valueNamesIter, valueCountsIter);
+			return new TopKElements(valuesToCounts, k);
+		}
+
+		return new TopKElements(new HashMap<>(), k);
 	}
 
 	private Set<String> getIndexedProperties(NodeState nodeState) {
@@ -173,6 +206,10 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 			}
 		}
 		return propStates;
+	}
+
+	private NodeState getIndexNode() {
+		return store.getRoot().getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
 	}
 
 	private boolean isRegExp(NodeState nodeState) {
