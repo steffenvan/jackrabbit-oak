@@ -1,21 +1,31 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 
 class EstimationResult {
-    private final String propertyName;
+	private final String propertyName;
 	private final long count;
 	private final long hllCount;
 
 	EstimationResult(String propertyName, long count, long hllCount) {
-	    this.propertyName = propertyName;
+		this.propertyName = propertyName;
 		this.count = count;
 		this.hllCount = hllCount;
 	}
 
+	long getCount() {
+		return this.count;
+	}
+
+	long getHllCount() {
+		return this.hllCount;
+	}
+
+	String getName() {
+		return propertyName;
+	}
+
 	@Override
 	public String toString() {
-		return "{ propertyName: \"" + propertyName + "\"," +
-		        " count: " + this.count + ", " +
-		        " distinct: " + this.hllCount +
-		        "}";
+		return "{ propertyName: \"" + propertyName + "\"," + " count: " + this.count + ", " + " distinct: "
+				+ this.hllCount + "}";
 	}
 }

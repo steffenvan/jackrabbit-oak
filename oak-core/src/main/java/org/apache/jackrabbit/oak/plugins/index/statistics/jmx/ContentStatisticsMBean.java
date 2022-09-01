@@ -39,4 +39,6 @@ public interface ContentStatisticsMBean {
 	Set<String> getIndexedPropertyNamesForSingleIndex(String name);
 
 	List<PropertyInfo> getTopKIndexedPropertiesForSingleProperty(String name, int k);
+
+	List<DetailedPropertyInfo> getPropertyInfoForSingleProperty(String name);
 }

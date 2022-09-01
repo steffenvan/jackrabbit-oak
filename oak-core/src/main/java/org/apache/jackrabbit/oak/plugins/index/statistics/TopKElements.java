@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class TopKElements {
 	private Map<String, Long> valuesToCounts;
@@ -43,6 +44,10 @@ public class TopKElements {
 		}
 
 		return valuesToCounts;
+	}
+
+	public Set<String> getNames() {
+		return valuesToCounts.keySet();
 	}
 
 	@Override

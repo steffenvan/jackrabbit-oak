@@ -2,6 +2,11 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import java.util.List;
 
+import org.apache.jackrabbit.oak.api.PropertyState;
+import org.apache.jackrabbit.oak.api.Type;
+import org.apache.jackrabbit.oak.spi.state.NodeState;
+import org.slf4j.Logger;
+
 public class PropertyStatistics {
 
 	private final String name;
@@ -39,6 +44,35 @@ public class PropertyStatistics {
 
 	CountMinSketch getValueSketch() {
 		return new CountMinSketch(valueSketch);
+	}
+
+	public static CountMinSketch readCMS(NodeState node, String cmsName, String rowName, String colName,
+			Logger logger) {
+		PropertyState rowsProp = node.getProperty(rowName);
+		PropertyState colsProp = node.getProperty(colName);
+
+		if (rowsProp == null || colsProp == null) {
+			return null;
+		}
+
+		int rows = rowsProp.getValue(Type.LONG).intValue();
+		int cols = colsProp.getValue(Type.LONG).intValue();
+		long[][] data = new long[rows][cols];
+
+		for (int i = 0; i < rows; i++) {
+			PropertyState ps = node.getProperty(cmsName + i);
+			if (ps != null) {
+				String s = ps.getValue(Type.STRING);
+				try {
+					long[] row = CountMinSketch.deserialize(s);
+					data[i] = row;
+				} catch (NumberFormatException e) {
+					logger.warn("Can not parse " + s);
+				}
+			}
+		}
+
+		return new CountMinSketch(rows, cols, data);
 	}
 
 	long getCount() {

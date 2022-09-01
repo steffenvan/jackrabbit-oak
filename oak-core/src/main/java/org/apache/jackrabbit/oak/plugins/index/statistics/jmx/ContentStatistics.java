@@ -15,6 +15,7 @@ import org.apache.jackrabbit.oak.plugins.index.statistics.CountMinSketch;
 import org.apache.jackrabbit.oak.plugins.index.statistics.Hash;
 import org.apache.jackrabbit.oak.plugins.index.statistics.HyperLogLog;
 import org.apache.jackrabbit.oak.plugins.index.statistics.PropertyInfo;
+import org.apache.jackrabbit.oak.plugins.index.statistics.PropertyStatistics;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
 import org.apache.jackrabbit.oak.plugins.index.statistics.TopKElements;
 import org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState;
@@ -27,8 +28,9 @@ import org.slf4j.LoggerFactory;
 
 public class ContentStatistics extends AnnotatedStandardMBean implements ContentStatisticsMBean {
 
-	private static final Logger LOG = LoggerFactory.getLogger(ContentStatistics.class);
 	private NodeStore store;
+
+	public static final Logger CS_LOG = LoggerFactory.getLogger(ContentStatistics.class);
 	public static final String STATISTICS_INDEX_NAME = "statistics";
 	private static final String INDEX_RULES = "indexRules";
 	private static final String PROPERTY_NAME = "name";
@@ -112,24 +114,13 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 		if (statisticsDataNode == null) {
 			return null;
 		}
+
 		NodeState properties = statisticsDataNode.getChildNode(PROPERTIES);
 		if (properties == null) {
 			return null;
 		}
-		List<EstimationResult> propertyCounts = new ArrayList<>();
 
-		for (ChildNodeEntry child : properties.getChildNodeEntries()) {
-			String propertyName = child.getName();
-			NodeState childNode = child.getNodeState();
-			long count = childNode.getProperty("count").getValue(Type.LONG);
-			String uniqueHll = childNode.getProperty("uniqueHLL").getValue(Type.STRING);
-			byte[] hll = HyperLogLog.deserialize(uniqueHll);
-			HyperLogLog hllObj = new HyperLogLog(64, hll);
-
-			propertyCounts.add(new EstimationResult(propertyName, count, hllObj.estimate()));
-		}
-
-		return propertyCounts;
+		return getEstimationResults(properties);
 
 	}
 
@@ -172,11 +163,61 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 		return topKElements.get();
 	}
 
+	@Override
+	public List<DetailedPropertyInfo> getPropertyInfoForSingleProperty(String name) {
+		NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
+		NodeState statisticsProperties = statisticsDataNode.getChildNode(PROPERTIES);
+		if (statisticsProperties == null || !statisticsProperties.hasChildNode(name)) {
+			return null;
+		}
+
+		CountMinSketch nameSketch = PropertyStatistics.readCMS(statisticsDataNode, StatisticsEditor.PROPERTY_CMS_NAME,
+				StatisticsEditor.PROPERTY_CMS_ROWS, StatisticsEditor.PROPERTY_CMS_COLS, CS_LOG);
+
+		long totalCount = nameSketch.estimateCount(Hash.hash64(name.hashCode()));
+
+		NodeState propertyNode = statisticsProperties.getChildNode(name);
+
+		PropertyState topKValueNames = propertyNode.getProperty(PROPERTY_TOP_K_NAME);
+		PropertyState topKValueCounts = propertyNode.getProperty(PROPERTY_TOP_K_COUNT);
+		TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, 5);
+
+		List<PropertyInfo> topK = topKElements.get();
+		List<DetailedPropertyInfo> dpis = new ArrayList<>();
+		for (PropertyInfo pi : topK) {
+			DetailedPropertyInfo dpi = new DetailedPropertyInfo(pi.getName(), pi.getCount(), totalCount);
+			dpis.add(dpi);
+		}
+
+		long topKTotalCount = dpis.stream().mapToLong(x -> x.getCount()).sum();
+		DetailedPropertyInfo totalInfo = new DetailedPropertyInfo("TopKCount", topKTotalCount, totalCount);
+		dpis.add(totalInfo);
+
+		return dpis;
+	}
+
+	private EstimationResult getSingleEstimationResult(String name, NodeState properties) {
+		NodeState child = properties.getChildNode(name);
+		long count = child.getProperty("count").getValue(Type.LONG);
+		String uniqueHll = child.getProperty("uniqueHLL").getValue(Type.STRING);
+		byte[] hll = HyperLogLog.deserialize(uniqueHll);
+		HyperLogLog hllObj = new HyperLogLog(64, hll);
+		return new EstimationResult(name, count, hllObj.estimate());
+	}
+
+	private List<EstimationResult> getEstimationResults(NodeState properties) {
+		List<EstimationResult> propertyCounts = new ArrayList<>();
+
+		for (ChildNodeEntry child : properties.getChildNodeEntries()) {
+			propertyCounts.add(getSingleEstimationResult(child.getName(), properties));
+		}
+		return propertyCounts;
+	}
+
 	// TODO: create method for getting the estimation of the value themselves.
 	// jcr:primaryType for instance.
 	// if it's part of the top K, return
-	// otherwie use cms to estimate .
-	//
+	// otherwie use cms to estimate.
 
 	private TopKElements readTopKElements(PropertyState valueNames, PropertyState valueCounts, int k) {
 		if (valueNames != null && valueCounts != null) {
