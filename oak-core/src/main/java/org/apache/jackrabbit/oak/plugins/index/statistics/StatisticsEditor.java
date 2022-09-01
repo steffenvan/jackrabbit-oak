@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 
 public class StatisticsEditor implements Editor {
 
-	private static final Logger LOG = LoggerFactory.getLogger(StatisticsEditor.class);
+	public static final Logger LOG = LoggerFactory.getLogger(StatisticsEditor.class);
 
 	public static final String DATA_NODE_NAME = "index";
 
@@ -32,7 +32,7 @@ public class StatisticsEditor implements Editor {
 	public static final int DEFAULT_HLL_SIZE = 10;
 	public static final int K_ELEMENTS = 5;
 
-	public static final String PROPERTY_CMS_NAME = "propertiesCountMinSketch";
+	public static final String PROPERTY_CMS_NAME = "propertySketch";
 	public static final String PROPERTY_HLL_NAME = "uniqueHLL";
 	public static final String PROPERTY_TOPK_NAME = "mostFrequentValueNames";
 	public static final String PROPERTY_TOPK_COUNT = "mostFrequentValueCounts";
@@ -60,7 +60,8 @@ public class StatisticsEditor implements Editor {
 		this.propertyStatistics = propertyStatistics;
 		if (root.definition.hasChildNode(DATA_NODE_NAME)) {
 			NodeBuilder data = root.definition.getChildNode(DATA_NODE_NAME);
-			CountMinSketch cms = readCMS(data, "property", PROPERTY_CMS_ROWS, PROPERTY_CMS_COLS);
+			CountMinSketch cms = PropertyStatistics.readCMS(data.getNodeState(), PROPERTY_CMS_NAME, PROPERTY_CMS_ROWS,
+					PROPERTY_CMS_COLS, LOG);
 			if (cms != null) {
 				this.propertyNameCMS = cms;
 			}
@@ -109,7 +110,7 @@ public class StatisticsEditor implements Editor {
 
 		String[] cmsSerialized = this.propertyNameCMS.serialize();
 		for (int i = 0; i < cmsSerialized.length; i++) {
-			data.setProperty("property" + i, cmsSerialized[i]);
+			data.setProperty(PROPERTY_CMS_NAME + i, cmsSerialized[i]);
 		}
 
 		data.setProperty(PROPERTY_CMS_ROWS, propertyNameCMS.getRows());
@@ -242,38 +243,10 @@ public class StatisticsEditor implements Editor {
 		PropertyState topKValueNames = prop.getProperty(PROPERTY_TOPK_NAME);
 		PropertyState topKValueCounts = prop.getProperty(PROPERTY_TOPK_COUNT);
 		TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts);
-		CountMinSketch valueSketch = readCMS(prop, VALUE_SKETCH, VALUE_SKETCH_ROWS, VALUE_SKETCH_COLS);
+		CountMinSketch valueSketch = PropertyStatistics.readCMS(prop.getNodeState(), VALUE_SKETCH, VALUE_SKETCH_ROWS,
+				VALUE_SKETCH_COLS, LOG);
 
 		return new PropertyStatistics(propertyName, c, new HyperLogLog(64, hllData), valueSketch, topKElements);
-	}
-
-	private CountMinSketch readCMS(NodeBuilder node, String cmsName, String rowName, String colName) {
-
-		PropertyState rowsProp = node.getProperty(rowName);
-		// .getValue(Type.LONG).intValue()
-		PropertyState colsProp = node.getProperty(colName);
-		if (rowsProp == null || colsProp == null) {
-			return null;
-		}
-
-		int rows = rowsProp.getValue(Type.LONG).intValue();
-		int cols = colsProp.getValue(Type.LONG).intValue();
-		long[][] data = new long[rows][cols];
-
-		for (int i = 0; i < rows; i++) {
-			PropertyState ps = node.getProperty(cmsName + i);
-			if (ps != null) {
-				String s = ps.getValue(Type.STRING);
-				try {
-					long[] row = CountMinSketch.deserialize(s);
-					data[i] = row;
-				} catch (NumberFormatException e) {
-					LOG.warn("Can not parse " + s);
-				}
-			}
-		}
-
-		return new CountMinSketch(rows, cols, data);
 	}
 
 	private TopKElements readTopKElements(PropertyState valueNames, PropertyState valueCounts) {
