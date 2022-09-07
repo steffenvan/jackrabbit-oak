@@ -12,11 +12,13 @@ import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 
 @Component(service = InventoryPrinter.class, property = { "felix.inventory.printer.name=oak-statistics",
 		"felix.inventory.printer.title=Statistics Index", "felix.inventory.printer.format=JSON" })
 public class StatisticsDefinitionPrinter implements InventoryPrinter {
 
+	@Reference
 	private NodeStore nodeStore;
 	private String STATISTICS_INDEX_NAME = "statistics";
 
@@ -33,7 +35,6 @@ public class StatisticsDefinitionPrinter implements InventoryPrinter {
 	@Override
 	public void print(PrintWriter printWriter, Format format, boolean isZip) {
 		if (format == Format.JSON) {
-			NodeState root = nodeStore.getRoot();
 			JsopBuilder json = new JsopBuilder();
 			json.object();
 
