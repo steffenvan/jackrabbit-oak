@@ -46,6 +46,7 @@ class IndexConfigGenerator {
 	private QueryEngine queryEngine;
 	private IndexDefinitionBuilder builder = new IndexDefinitionBuilder();
 	private final Set<String> propsWithFulltextConstraints = Sets.newHashSet();
+	private Set<String> failedQueries = Sets.newHashSet();
 
 	private NodeState INITIAL_CONTENT = createInitialContent();
 
@@ -78,7 +79,21 @@ class IndexConfigGenerator {
 	}
 
 	public void process(String statement, String language) throws ParseException {
-		queryEngine.executeQuery(statement, language, null, null);
+		try {
+			queryEngine.executeQuery(statement, "xpath", null, null);
+		} catch (ParseException e) {
+			try {
+//				List<String> bindVariables = queryEngine.getBindVariableNames(statement, language, null);
+				queryEngine.executeQuery(statement, "JCR-SQL2", null, null);
+			} catch (ParseException e1) {
+				try {
+					queryEngine.executeQuery(statement, "sql", null, null);
+				} catch (ParseException e2) {
+					System.out.println(statement);
+					failedQueries.add(statement);
+				}
+			}
+		}
 	}
 
 	public NodeState getIndexConfig() {
