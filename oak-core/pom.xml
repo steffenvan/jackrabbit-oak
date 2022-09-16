@@ -298,6 +298,12 @@
       <artifactId>metrics-core</artifactId>
       <optional>true</optional>
     </dependency>
+    
+    <dependency>
+        <groupId>com.opencsv</groupId>
+        <artifactId>opencsv</artifactId>
+        <version>5.7.0</version>
+    </dependency>
 
     <!-- JCR and Jackrabbit dependencies -->
     <dependency>
@@ -321,6 +327,12 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>1.7.21</version>
     </dependency>
 
     <dependency>
