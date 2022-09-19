@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.jackrabbit.oak.exporter.NodeStateExportCommand;
 import org.apache.jackrabbit.oak.index.IndexCommand;
 import org.apache.jackrabbit.oak.index.merge.IndexDiffCommand;
+import org.apache.jackrabbit.oak.index.statistics.ContentStatisticsCommand;
 import org.apache.jackrabbit.oak.run.commons.Command;
 import org.apache.jackrabbit.oak.run.commons.Modes;
 
@@ -37,6 +38,7 @@ public final class AvailableModes {
             .put("compact", new CompactCommand())
             .put("composite-prepare", new CompositePrepareCommand())
             .put("console", new ConsoleCommand())
+            .put(ContentStatisticsCommand.NAME, new ContentStatisticsCommand())
             .put(DataStoreCommand.NAME, new DataStoreCommand())
             .put("datastorecacheupgrade", new DataStoreCacheUpgradeCommand())
             .put("datastorecheck", new DataStoreCheckCommand())
