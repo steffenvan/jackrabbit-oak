@@ -6,13 +6,13 @@ import org.apache.jackrabbit.oak.spi.state.NodeState;
 
 public class NodeStateExporter {
 
-	public static String toJson(NodeState state) {
-		return new JsonExporter().toJson(state);
-	}
+    public static String toJson(NodeState state) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
 
-	public static Map<String, Object> toMap(NodeState state) {
-		return new JsonExporter().toMap(state);
-	}
+    public static Map<String, Object> toMap(NodeState state) {
+        return new JsonExporter().toMap(state);
+    }
 
 //    static String toCND(NodeState state){
 //        return new CndExporter().toCNDFormat(state)

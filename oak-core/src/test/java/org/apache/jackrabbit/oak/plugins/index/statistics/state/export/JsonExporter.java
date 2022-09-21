@@ -9,32 +9,31 @@ import org.apache.jackrabbit.oak.spi.state.NodeState;
 
 public class JsonExporter {
 
-	public String toJson(NodeState state) {
-
+    public String toJson(NodeState state) {
 //        return JsonOutput.prettyPrint(JsonOutput.toJson(toMap(state)));
-		return null;
-	}
+        throw new UnsupportedOperationException();
+    }
 
-	public Map<String, Object> toMap(NodeState state) {
-		Map<String, Object> result = new HashMap<>();
-		return copyNode(state, result);
-	}
+    public Map<String, Object> toMap(NodeState state) {
+        Map<String, Object> result = new HashMap<>();
+        return copyNode(state, result);
+    }
 
-	private static Map<String, Object> copyNode(NodeState state, Map<String, Object> result) {
-		copyProperties(state, result);
-		for (ChildNodeEntry cne : state.getChildNodeEntries()) {
-			Map<String, Object> nodeMap = new HashMap<>();
-			result.put(cne.getName(), nodeMap);
-			copyNode(cne.getNodeState(), nodeMap);
-		}
+    private static Map<String, Object> copyNode(NodeState state, Map<String, Object> result) {
+        copyProperties(state, result);
+        for (ChildNodeEntry cne : state.getChildNodeEntries()) {
+            Map<String, Object> nodeMap = new HashMap<>();
+            result.put(cne.getName(), nodeMap);
+            copyNode(cne.getNodeState(), nodeMap);
+        }
 
-		return result;
-	}
+        return result;
+    }
 
-	private static Map<String, Object> copyProperties(NodeState state, Map<String, Object> map) {
-		for (PropertyState ps : state.getProperties()) {
-			map.put(ps.getName(), ps.getValue(ps.getType()));
-		}
-		return map;
-	}
+    private static Map<String, Object> copyProperties(NodeState state, Map<String, Object> map) {
+        for (PropertyState ps : state.getProperties()) {
+            map.put(ps.getName(), ps.getValue(ps.getType()));
+        }
+        return map;
+    }
 }
