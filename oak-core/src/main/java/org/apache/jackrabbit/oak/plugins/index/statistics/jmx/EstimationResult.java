@@ -25,11 +25,18 @@ public class EstimationResult {
 
     @Override
     public String toString() {
-        String result = "{" + "\"" + propertyName + "\"" + " : ";
-        result += "{" + "\"" + "count" + "\"" + " : " + "\"" + count + "\"" + ", ";
+        String result = "{";
+        result += "\"" + "propertyName" + "\"" + " : " + "\"" + propertyName + "\"";
+        result += ", ";
+        result += "\"" + "count" + "\"" + " : " + "\"" + count + "\"";
+        result += ", ";
         result += "\"" + "unique" + "\"" + " : " + "\"" + hllCount + "\"";
         result += "}";
-        result += "}";
         return result;
+    }
+
+    public static void main(String[] args) {
+        EstimationResult er = new EstimationResult("jcr:primaryType", 42, 1);
+        System.out.println(er);
     }
 }
