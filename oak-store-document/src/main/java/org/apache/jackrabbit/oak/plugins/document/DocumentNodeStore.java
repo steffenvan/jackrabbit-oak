@@ -38,6 +38,7 @@ import static org.apache.jackrabbit.oak.plugins.document.util.Utils.alignWithExt
 import static org.apache.jackrabbit.oak.plugins.document.util.Utils.getIdFromPath;
 import static org.apache.jackrabbit.oak.plugins.document.util.Utils.getModuleVersion;
 import static org.apache.jackrabbit.oak.plugins.document.util.Utils.pathToId;
+import static org.apache.jackrabbit.oak.plugins.document.util.Utils.isThrottlingEnabled;
 import static org.apache.jackrabbit.oak.spi.observation.ChangeSet.COMMIT_CONTEXT_OBSERVATION_CHANGESET;
 
 import java.io.Closeable;
@@ -105,6 +106,7 @@ import org.apache.jackrabbit.oak.plugins.document.util.LeaseCheckDocumentStoreWr
 import org.apache.jackrabbit.oak.plugins.document.util.LoggingDocumentStoreWrapper;
 import org.apache.jackrabbit.oak.plugins.document.util.TimingDocumentStoreWrapper;
 import org.apache.jackrabbit.oak.plugins.document.util.Utils;
+import org.apache.jackrabbit.oak.plugins.document.util.ThrottlingDocumentStoreWrapper;
 import org.apache.jackrabbit.oak.spi.blob.GarbageCollectableBlobStore;
 import org.apache.jackrabbit.oak.spi.commit.ChangeDispatcher;
 import org.apache.jackrabbit.oak.spi.commit.CommitContext;
@@ -595,6 +597,10 @@ public final class DocumentNodeStore
             checkRevisionAge(nonLeaseCheckingStore, clusterNodeInfo, clock);
         }
         this.clusterId = clusterNodeInfo.getId();
+
+        if (isThrottlingEnabled(builder)) {
+            s = new ThrottlingDocumentStoreWrapper(s);
+        }
 
         clusterNodeInfo.setLeaseCheckMode(builder.getLeaseCheckMode());
         if (builder.getLeaseCheckMode() != LeaseCheckMode.DISABLED) {

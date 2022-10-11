@@ -191,7 +191,7 @@ public class Oak {
 	 * Default {@code ScheduledExecutorService} used for scheduling background
 	 * tasks. This default spawns up to 32 background thread on an as need basis.
 	 * Idle threads are pruned after one minute.
-	 * 
+	 *
 	 * @return fresh ScheduledExecutorService
 	 */
 	public static ScheduledExecutorService defaultScheduledExecutor() {
@@ -218,26 +218,26 @@ public class Oak {
 	 * Default {@code ExecutorService} used for scheduling concurrent tasks. This
 	 * default spawns as many threads as required with a priority of
 	 * {@code Thread.MIN_PRIORITY}. Idle threads are pruned after one minute.
-	 * 
+	 *
 	 * @return fresh ExecutorService
 	 */
 	public static ExecutorService defaultExecutorService() {
 		ThreadPoolExecutor executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS,
 				new SynchronousQueue<Runnable>(), new ThreadFactory() {
-					private final AtomicInteger counter = new AtomicInteger();
+			private final AtomicInteger counter = new AtomicInteger();
 
-					@Override
-					public Thread newThread(@NotNull Runnable r) {
-						Thread thread = new Thread(r, createName());
-						thread.setDaemon(true);
-						thread.setPriority(Thread.MIN_PRIORITY);
-						return thread;
-					}
+			@Override
+			public Thread newThread(@NotNull Runnable r) {
+				Thread thread = new Thread(r, createName());
+				thread.setDaemon(true);
+				thread.setPriority(Thread.MIN_PRIORITY);
+				return thread;
+			}
 
-					private String createName() {
-						return "oak-executor-" + counter.getAndIncrement();
-					}
-				});
+			private String createName() {
+				return "oak-executor-" + counter.getAndIncrement();
+			}
+		});
 		executor.setKeepAliveTime(1, TimeUnit.MINUTES);
 		executor.allowCoreThreadTimeOut(true);
 		return executor;
@@ -590,7 +590,7 @@ public class Oak {
 	 * of calling <code>#shutdown</code> on the <code>executor</code> provided for
 	 * this Oak instance.
 	 * </p>
-	 * 
+	 *
 	 * @deprecated Use {@link Oak#withAsyncIndexing(String, long)} instead
 	 */
 	@Deprecated

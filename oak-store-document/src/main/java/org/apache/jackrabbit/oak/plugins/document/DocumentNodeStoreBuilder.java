@@ -122,6 +122,7 @@ public class DocumentNodeStoreBuilder<T extends DocumentNodeStoreBuilder<T>> {
     private LeaseCheckMode leaseCheck = ClusterNodeInfo.DEFAULT_LEASE_CHECK_MODE; // OAK-2739 is enabled by default also for non-osgi
     private boolean isReadOnlyMode = false;
     private Feature prefetchFeature;
+    private Feature docStoreThrottlingFeature;
     private Weigher<CacheValue, CacheValue> weigher = new EmpiricalWeigher();
     private long memoryCacheSize = DEFAULT_MEMORY_CACHE_SIZE;
     private int nodeCachePercentage = DEFAULT_NODE_CACHE_PERCENTAGE;
@@ -158,6 +159,7 @@ public class DocumentNodeStoreBuilder<T extends DocumentNodeStoreBuilder<T>> {
             LoggerFactory.getLogger(VersionGarbageCollector.class));
     private Predicate<Path> nodeCachePredicate = Predicates.alwaysTrue();
     private boolean clusterInvisible;
+    private boolean throttlingEnabled;
 
     /**
      * @return a new {@link DocumentNodeStoreBuilder}.
@@ -271,6 +273,15 @@ public class DocumentNodeStoreBuilder<T extends DocumentNodeStoreBuilder<T>> {
         return leaseCheck;
     }
 
+    public T setThrottlingEnabled(boolean b) {
+        this.throttlingEnabled = b;
+        return thisBuilder();
+    }
+
+    public boolean isThrottlingEnabled() {
+        return this.throttlingEnabled;
+    }
+
     public T setReadOnlyMode() {
         this.isReadOnlyMode = true;
         return thisBuilder();
@@ -288,6 +299,16 @@ public class DocumentNodeStoreBuilder<T extends DocumentNodeStoreBuilder<T>> {
     @Nullable
     public Feature getPrefetchFeature() {
         return prefetchFeature;
+    }
+
+    public T setDocStoreThrottlingFeature(@Nullable Feature docStoreThrottling) {
+        this.docStoreThrottlingFeature = docStoreThrottling;
+        return thisBuilder();
+    }
+
+    @Nullable
+    public Feature getDocStoreThrottlingFeature() {
+        return docStoreThrottlingFeature;
     }
 
     public T setLeaseFailureHandler(LeaseFailureHandler leaseFailureHandler) {
