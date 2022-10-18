@@ -1,8 +1,12 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
-import org.apache.jackrabbit.oak.commons.cache.Cache;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Set;
 
 public class TopKElements {
 	private final int k;
@@ -13,8 +17,8 @@ public class TopKElements {
 		String value;
 		long count;
 
-		public ValueCountPair(String name, Long count) {
-			this.value = name;
+		public ValueCountPair(String value, Long count) {
+			this.value = value;
 			this.count = count;
 		}
 
@@ -25,11 +29,7 @@ public class TopKElements {
 
 		@Override
 		public int hashCode() {
-			final int prime = 31;
-			int result = 1;
-			result = prime * result + value.hashCode();
-			result = (int) (prime * result + count);
-			return result;
+		    return value.hashCode();
 		}
 
 		@Override
@@ -58,13 +58,12 @@ public class TopKElements {
 		this.topValues.clear();
 	}
 
-	private boolean replaceLowest
 	void update(Object val, long count) {
-		String name = val.toString();
-		ValueCountPair curr = new ValueCountPair(name, count);
-		if (currValues.contains(name)) {
+		String value = val.toString();
+		ValueCountPair curr = new ValueCountPair(value, count);
+		if (currValues.contains(value)) {
 			topValues.remove(curr);
-			currValues.remove(name);
+			currValues.remove(value);
 		}
 
 		if (topValues.size() >= k) {
@@ -76,7 +75,7 @@ public class TopKElements {
 			}
 		}
 		topValues.offer(curr);
-		currValues.add(name);
+		currValues.add(value);
 	}
 
 	public List<PropertyInfo> get() {
