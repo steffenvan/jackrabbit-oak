@@ -2,9 +2,7 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -199,7 +197,7 @@ public class StatisticsEditor implements Editor {
 			ps = readPropertyStatistics(propertyName);
 			if (ps == null) {
 				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64), new CountMinSketch(0.01, 0.99),
-						new TopKElements(new HashMap<>(), K_ELEMENTS));
+						new TopKElements(new PriorityQueue<>(), K_ELEMENTS, new HashSet<>()));
 			}
 		}
 		long hash64 = Hash.hash64((val.hashCode()));
@@ -255,11 +253,12 @@ public class StatisticsEditor implements Editor {
 			Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
 			@NotNull
 			Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
-			Map<String, Long> valuesToCounts = TopKElements.deserialize(valueNamesIter, valueCountsIter);
-			return new TopKElements(valuesToCounts, K_ELEMENTS);
+
+			PriorityQueue<TopKElements.ValueCountPair> topElements = TopKElements.deserialize(valueNamesIter, valueCountsIter, K_ELEMENTS);
+			return new TopKElements(topElements, K_ELEMENTS, new HashSet<>());
 		}
 
-		return new TopKElements(new HashMap<>(), K_ELEMENTS);
+		return new TopKElements(new PriorityQueue<>(), K_ELEMENTS, new HashSet<>());
 	}
 
 	@Override

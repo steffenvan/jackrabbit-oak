@@ -1,11 +1,6 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
@@ -227,11 +222,11 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
             Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
             @NotNull
             Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
-            Map<String, Long> valuesToCounts = TopKElements.deserialize(valueNamesIter, valueCountsIter);
-            return new TopKElements(valuesToCounts, k);
+            PriorityQueue<TopKElements.ValueCountPair> topValues = TopKElements.deserialize(valueNamesIter, valueCountsIter, k);
+            return new TopKElements(topValues, k, new HashSet<>());
         }
 
-        return new TopKElements(new HashMap<>(), k);
+        return new TopKElements(new PriorityQueue<>(), k, new HashSet<>());
     }
 
     public Set<String> getIndexedProperties(NodeState nodeState) throws IllegalArgumentException {
@@ -249,12 +244,18 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                         } else {
                             propertyName = parse(childNode.getProperty("properties").getValue(Type.STRING));
                         }
-                        propStates.add(propertyName);
+                        if (isValidPropertyName(propertyName)) {
+                            propStates.add(propertyName);
+                        }
                     }
                 }
             }
         }
         return propStates;
+    }
+
+    private boolean isValidPropertyName(String propertyName) {
+        return !propertyName.startsWith("function") && !propertyName.equals("jcr:path") && !propertyName.equals("rep:facet");
     }
 
     private NodeState getIndexNode() {
@@ -316,5 +317,4 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         }
         return count;
     }
-
 }
