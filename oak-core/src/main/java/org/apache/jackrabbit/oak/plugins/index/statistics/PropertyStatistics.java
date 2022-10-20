@@ -15,16 +15,11 @@ public class PropertyStatistics {
 	private TopKElements topKElements;
 	private HyperLogLog hll;
 
-	PropertyStatistics(String name, long count, HyperLogLog hll) {
-		this.name = name;
-		this.count = count;
-		this.hll = hll;
-	}
-
-	// which data structure to store top k counts?
 	PropertyStatistics(String name, long count, HyperLogLog hll, CountMinSketch valueSketch,
 			TopKElements topKElements) {
-		this(name, count, hll);
+        this.name = name;
+        this.count = count;
+        this.hll = hll;
 		this.valueSketch = valueSketch;
 		this.topKElements = topKElements;
 	}
@@ -51,26 +46,24 @@ public class PropertyStatistics {
 		PropertyState rowsProp = node.getProperty(rowName);
 		PropertyState colsProp = node.getProperty(colName);
 
-		if (rowsProp == null || colsProp == null) {
-			return null;
-		}
-
 		int rows = rowsProp.getValue(Type.LONG).intValue();
 		int cols = colsProp.getValue(Type.LONG).intValue();
 		long[][] data = new long[rows][cols];
 
-		for (int i = 0; i < rows; i++) {
-			PropertyState ps = node.getProperty(cmsName + i);
-			if (ps != null) {
-				String s = ps.getValue(Type.STRING);
-				try {
-					long[] row = CountMinSketch.deserialize(s);
-					data[i] = row;
-				} catch (NumberFormatException e) {
-					logger.warn("Can not parse " + s);
-				}
-			}
-		}
+        if (rowsProp != null || colsProp != null) {
+            for (int i = 0; i < rows; i++) {
+                PropertyState ps = node.getProperty(cmsName + i);
+                if (ps != null) {
+                    String s = ps.getValue(Type.STRING);
+                    try {
+                        long[] row = CountMinSketch.deserialize(s);
+                        data[i] = row;
+                    } catch (NumberFormatException e) {
+                        logger.warn("Can not parse " + s);
+                    }
+                }
+            }
+        }
 
 		return new CountMinSketch(rows, cols, data);
 	}
