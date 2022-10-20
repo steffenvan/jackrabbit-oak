@@ -66,11 +66,12 @@ public class TopKElements {
 			currValues.remove(value);
 		}
 
-		if (topValues.size() >= k) {
+		while (topValues.size() >= k) {
 			ValueCountPair top = topValues.peek();
 			assert top != null;
 			if (count >= top.count) {
-				topValues.poll();
+				ValueCountPair old = topValues.poll();
+				currValues.remove(old.value);
 //				topValues.offer(curr);
 			}
 		}
