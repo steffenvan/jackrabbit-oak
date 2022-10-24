@@ -62,21 +62,24 @@ public class TopKElements {
 		String value = val.toString();
 		ValueCountPair curr = new ValueCountPair(value, count);
 		if (currValues.contains(value)) {
-			topValues.remove(curr);
 			currValues.remove(value);
+			// if the current value is already in the priority queue it will have an outdated count, which is why we
+			// remove it and re-insert it with the updated count
+			topValues.remove(curr);
 		}
 
 		while (topValues.size() >= k) {
 			ValueCountPair top = topValues.peek();
 			assert top != null;
-			if (count >= top.count) {
-				ValueCountPair old = topValues.poll();
-				currValues.remove(old.value);
-//				topValues.offer(curr);
-			}
+			if (!(top.count < count)) break;
+			ValueCountPair old = topValues.poll();
+			currValues.remove(old.value);
 		}
-		topValues.offer(curr);
-		currValues.add(value);
+
+		if (topValues.size() < k) {
+			topValues.offer(curr);
+			currValues.add(value);
+		}
 	}
 
 	public List<PropertyInfo> get() {
