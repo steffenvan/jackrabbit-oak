@@ -10,8 +10,8 @@ import java.util.Set;
 
 public class TopKElements {
 	private final int k;
-	private PriorityQueue<ValueCountPair> topValues;
-	private HashSet<String> currValues;
+	private final PriorityQueue<ValueCountPair> topValues;
+	private final HashSet<String> currValues;
 
 	public static class ValueCountPair implements Comparable<ValueCountPair> {
 		String value;
