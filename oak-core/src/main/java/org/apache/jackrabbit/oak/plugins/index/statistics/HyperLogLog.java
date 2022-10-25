@@ -50,7 +50,7 @@ public class HyperLogLog implements CardinalityEstimator {
             sum += 1. / (1L << (c & 0xff));
         }
         long est = (long) (1. / sum * am * m * m);
-        if (est <= 5 * m && countZero > 0) {
+        if (est <= 5L * m && countZero > 0) {
             // linear counting
             est = (long) (m * Math.log((double) m / countZero));
         }
