@@ -68,12 +68,13 @@ public class TopKElements {
 			topValues.remove(curr);
 		}
 
-		while (topValues.size() >= k) {
+		if (topValues.size() >= k) {
 			ValueCountPair top = topValues.peek();
 			assert top != null;
-			if (!(top.count < count)) break;
-			ValueCountPair old = topValues.poll();
-			currValues.remove(old.value);
+			if (count >= top.count) {
+				ValueCountPair old = topValues.poll();
+				currValues.remove(old.value);
+			}
 		}
 
 		if (topValues.size() < k) {
