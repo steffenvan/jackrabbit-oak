@@ -10,11 +10,6 @@ public class CountMinSketch implements FrequencyCounter {
 	private final long[][] items;
 	private final int rows;
 	private final int cols;
-
-	private final double epsilon;
-
-	private final double delta;
-
 	private final int shift;
 
 	private long count;
@@ -25,20 +20,9 @@ public class CountMinSketch implements FrequencyCounter {
 		this(rows, cols, new long[rows][cols]);
 	}
 
-	public CountMinSketch(double epsilon, double delta) {
-		this.epsilon = epsilon;
-		this.delta = delta;
-		this.cols = (int) Math.ceil(2 / epsilon);
-		this.rows = (int) Math.ceil(-Math.log(1 - delta) / Math.log(2));
-		this.shift = Integer.bitCount(this.rows);
-		items = new long[this.rows][this.cols];
-	}
-
 	public CountMinSketch(int rows, int cols, long[][] items) {
 		this.rows = rows;
 		this.cols = cols;
-		this.epsilon = 2.0 / cols;
-		this.delta = 1 - 1 / Math.pow(2, rows);
 		this.shift = Integer.bitCount(rows);
 		this.items = items;
 	}

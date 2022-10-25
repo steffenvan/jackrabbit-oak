@@ -83,7 +83,7 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
 
         StatisticsEditor.StatisticsRoot rootData = new StatisticsEditor.StatisticsRoot(
                 resolution, seed, definition, root, callback, commonPropertyThreshold);
-        CountMinSketch cms = new CountMinSketch(0.01, 0.99);
+        CountMinSketch cms = new CountMinSketch(7, 200);
         Map<String, PropertyStatistics> propertyStatistics = new HashMap<>();
 
         return new StatisticsEditor(rootData, cms, propertyStatistics);

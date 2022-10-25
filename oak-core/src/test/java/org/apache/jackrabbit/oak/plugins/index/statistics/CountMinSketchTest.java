@@ -18,10 +18,11 @@ public class CountMinSketchTest {
 	public void testPrecision() {
 		int numData = 1000000;
 		int[] data = getRandomData(numData);
-
-		double epsilon = 0.001;
-		double delta = 0.99;
-		CountMinSketch sketch = new CountMinSketch(epsilon, delta);
+		int rows = 7;
+		int cols = 200;
+		double epsilon = 2.0 / cols;
+		double delta = 1 - 1 / Math.pow(2, rows);
+		CountMinSketch sketch = new CountMinSketch(rows, cols);
 		sketch.setSeed(0);
 
 		// add to the CMS
@@ -83,7 +84,7 @@ public class CountMinSketchTest {
 
 		long[][] actual = new long[rows][cols];
 		for (int i = 0; i < test.length; i++) {
-			actual[i] = sketch.deserialize(test[i]);
+			actual[i] = CountMinSketch.deserialize(test[i]);
 		}
 
 		for (long[] d : actual) {
