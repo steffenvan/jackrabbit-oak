@@ -14,12 +14,13 @@ public class CountMinSketchTest {
 
 	private static final String WITH_DELIMITER = "(?=1$s)";
 
+	// TODO: Improve tests
 	@Test
 	public void testPrecision() {
 		int numData = 1000000;
 		int[] data = getRandomData(numData);
 		int rows = 7;
-		int cols = 200;
+		int cols = 32;
 		double epsilon = 2.0 / cols;
 		double delta = 1 - 1 / Math.pow(2, rows);
 		CountMinSketch sketch = new CountMinSketch(rows, cols);

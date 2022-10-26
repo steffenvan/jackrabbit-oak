@@ -21,9 +21,17 @@ public class CountMinSketch implements FrequencyCounter {
 	}
 
 	public CountMinSketch(int rows, int cols, long[][] items) {
+		if (Integer.bitCount(cols) != 1 || cols < 2) {
+			throw new IllegalArgumentException("The number of columns must be a power of 2 and larger than 2.");
+		}
+
+		this.shift = Integer.bitCount(cols - 1);
+		if (this.shift * rows > 64 ) {
+			throw new IllegalArgumentException("The number of rows: " + rows + " is too large");
+		}
+
 		this.rows = rows;
 		this.cols = cols;
-		this.shift = Integer.bitCount(rows);
 		this.items = items;
 	}
 
@@ -45,19 +53,20 @@ public class CountMinSketch implements FrequencyCounter {
 
 	@Override
 	public void add(long hash) {
-		count++;
 		for (int i = 0; i < rows; i++) {
-			int col = Hash.reduce(hash, cols);
+			int col = (int) (hash & (cols - 1));
 			items[i][col]++;
 			hash >>>= shift;
 		}
+		count++;
 	}
 
 	@Override
 	public long estimateCount(long hash) {
 		long currMin = Long.MAX_VALUE;
 		for (int i = 0; i < rows; i++) {
-			currMin = Math.min(currMin, items[i][Hash.reduce(hash, cols)]);
+			int col = (int) (hash & (cols - 1));
+			currMin = Math.min(currMin, items[i][col]);
 			hash >>>= shift;
 		}
 
@@ -66,9 +75,10 @@ public class CountMinSketch implements FrequencyCounter {
 
 	public static long estimateCount(long hash, long[][] counts, int cols, int rows) {
 		long currMin = Long.MAX_VALUE;
-		int shift = Integer.bitCount(rows);
+		int shift = Integer.bitCount(rows - 1);
 		for (int i = 0; i < rows; i++) {
-			currMin = Math.min(currMin, counts[i][Hash.reduce(hash, cols)]);
+			int col = (int) (hash & (cols - 1));
+			currMin = Math.min(currMin, counts[i][col]);
 			hash >>>= shift;
 		}
 

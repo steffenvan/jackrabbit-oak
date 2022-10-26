@@ -196,7 +196,7 @@ public class StatisticsEditor implements Editor {
 		if (ps == null) {
 			ps = readPropertyStatistics(propertyName);
 			if (ps == null) {
-				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64), new CountMinSketch(7, 200),
+				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64), new CountMinSketch(7, 32),
 						new TopKElements(new PriorityQueue<>(), K_ELEMENTS, new HashSet<>()));
 			}
 		}
