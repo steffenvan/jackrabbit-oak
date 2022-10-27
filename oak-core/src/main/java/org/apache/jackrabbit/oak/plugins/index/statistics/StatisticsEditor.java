@@ -41,6 +41,8 @@ public class StatisticsEditor implements Editor {
 	public static final String VALUE_SKETCH_ROWS = "valueSketchRows";
 	public static final String VALUE_SKETCH_COLS = "valueSketchCols";
 
+	public static final String AVG_VALUE_LENGTH = "averageValueLength";
+
 	private CountMinSketch propertyNameCMS;
 	private Map<String, PropertyStatistics> propertyStatistics;
 	private final StatisticsRoot root;
@@ -48,6 +50,8 @@ public class StatisticsEditor implements Editor {
 	private final String name;
 	private SipHash hash;
 	private int recursionLevel;
+	private final static String MAX_VALUE_LENGTH = "maxValueLength";
+	private final static String MIN_VALUE_LENGTH = "minValueLength";
 
 	StatisticsEditor(StatisticsRoot root, CountMinSketch propertyNameCMS,
 			Map<String, PropertyStatistics> propertyStatistics) {
@@ -133,6 +137,9 @@ public class StatisticsEditor implements Editor {
 
 			statNode.setProperty(VALUE_SKETCH_ROWS, (long) valueSketch.getRows(), Type.LONG);
 			statNode.setProperty(VALUE_SKETCH_COLS, (long) valueSketch.getCols(), Type.LONG);
+			statNode.setProperty(AVG_VALUE_LENGTH, propStats.getTotalValueLength(), Type.LONG);
+			statNode.setProperty(MAX_VALUE_LENGTH, propStats.getMaxLength(), Type.LONG);
+			statNode.setProperty(MIN_VALUE_LENGTH, propStats.getMinLength(), Type.LONG);
 
 			// TODO: consider using HyperLogLog4TailCut64 so that we only store a long
 			// rather than array

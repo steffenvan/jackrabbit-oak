@@ -14,6 +14,10 @@ public class PropertyStatistics {
 	private CountMinSketch valueSketch;
 	private TopKElements topKElements;
 	private HyperLogLog hll;
+	private long valueLength;
+
+	private long maxLength;
+	private long minLength;
 
 	PropertyStatistics(String name, long count, HyperLogLog hll, CountMinSketch valueSketch,
 			TopKElements topKElements) {
@@ -22,6 +26,8 @@ public class PropertyStatistics {
         this.hll = hll;
 		this.valueSketch = valueSketch;
 		this.topKElements = topKElements;
+		this.maxLength = 0;
+		this.minLength = Long.MAX_VALUE;
 	}
 
 	void updateHll(long hash) {
@@ -31,6 +37,10 @@ public class PropertyStatistics {
 	void updateValueCounts(Object val, long hash) {
 		valueSketch.add(hash);
 		topKElements.update(val, valueSketch.estimateCount(hash));
+		long len = val.toString().length();
+		valueLength += len;
+		maxLength = Math.max(maxLength, len);
+		minLength = Math.min(minLength, len);
 	}
 
 	List<PropertyInfo> getTopKValuesDescending() {
@@ -66,6 +76,18 @@ public class PropertyStatistics {
         }
 
 		return new CountMinSketch(rows, cols, data);
+	}
+
+	long getTotalValueLength() {
+		return valueLength;
+	}
+
+	long getMaxLength() {
+		return maxLength;
+	}
+
+	long getMinLength() {
+		return minLength;
 	}
 
 	long getCount() {
