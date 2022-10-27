@@ -46,7 +46,7 @@ public class StatisticsEditor implements Editor {
 	public final static String MIN_VALUE_LENGTH = "minValueLength";
 
 	private CountMinSketch propertyNameCMS;
-	private Map<String, PropertyStatistics> propertyStatistics;
+	private final Map<String, PropertyStatistics> propertyStatistics;
 	private final StatisticsRoot root;
 	private final StatisticsEditor parent;
 	private final String name;
