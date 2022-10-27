@@ -51,10 +51,13 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         }
         long count = property.getProperty("count").getValue(Type.LONG);
         String storedHll = property.getProperty("uniqueHLL").getValue(Type.STRING);
+        long avgLength = property.getProperty(StatisticsEditor.AVG_VALUE_LENGTH).getValue(Type.LONG);
+        long maxLength = property.getProperty(StatisticsEditor.MAX_VALUE_LENGTH).getValue(Type.LONG);
+        long minLength = property.getProperty(StatisticsEditor.MIN_VALUE_LENGTH).getValue(Type.LONG);
         byte[] hllCounts = HyperLogLog.deserialize(storedHll);
         HyperLogLog hll = new HyperLogLog(64, hllCounts);
 
-        return new EstimationResult(name, count, hll.estimate());
+        return new EstimationResult(name, count, hll.estimate(), avgLength, maxLength, minLength);
     }
 
     private NodeState getStatisticsIndexDataNodeOrNull() {
@@ -196,10 +199,15 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         long count = child.getProperty("count").getValue(Type.LONG);
         String uniqueHll = child.getProperty("uniqueHLL").getValue(Type.STRING);
         byte[] hll = HyperLogLog.deserialize(uniqueHll);
+
+        long avgLength = child.getProperty(StatisticsEditor.AVG_VALUE_LENGTH).getValue(Type.LONG);
+        long maxLength = child.getProperty(StatisticsEditor.MAX_VALUE_LENGTH).getValue(Type.LONG);
+        long minLength = child.getProperty(StatisticsEditor.MIN_VALUE_LENGTH).getValue(Type.LONG);
+
         // TODO: read the first parameter from the node itself as well rather than
         // hard-coding 64
         HyperLogLog hllObj = new HyperLogLog(64, hll);
-        return new EstimationResult(name, count, hllObj.estimate());
+        return new EstimationResult(name, count, hllObj.estimate(), avgLength, maxLength, minLength);
     }
 
     private List<EstimationResult> getEstimationResults(NodeState properties) {
