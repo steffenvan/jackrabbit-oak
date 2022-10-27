@@ -42,6 +42,8 @@ public class StatisticsEditor implements Editor {
 	public static final String VALUE_SKETCH_COLS = "valueSketchCols";
 
 	public static final String AVG_VALUE_LENGTH = "averageValueLength";
+	public final static String MAX_VALUE_LENGTH = "maxValueLength";
+	public final static String MIN_VALUE_LENGTH = "minValueLength";
 
 	private CountMinSketch propertyNameCMS;
 	private Map<String, PropertyStatistics> propertyStatistics;
@@ -50,8 +52,6 @@ public class StatisticsEditor implements Editor {
 	private final String name;
 	private SipHash hash;
 	private int recursionLevel;
-	private final static String MAX_VALUE_LENGTH = "maxValueLength";
-	private final static String MIN_VALUE_LENGTH = "minValueLength";
 
 	StatisticsEditor(StatisticsRoot root, CountMinSketch propertyNameCMS,
 			Map<String, PropertyStatistics> propertyStatistics) {
