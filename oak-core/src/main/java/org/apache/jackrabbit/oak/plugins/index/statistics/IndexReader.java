@@ -31,7 +31,6 @@ class IndexReader {
         List<String> values = new ArrayList<>();
         List<Long> counts = new ArrayList<>();
 
-        topValueCountsNode = node.path("count");
         if (!topValueNamesNode.isArray()) {
             throw new IllegalArgumentException("Invalid type: " + topValueNamesNode.getNodeType() +  " for top value names. It should have type: " + JsonNodeType.ARRAY);
         }
@@ -39,7 +38,7 @@ class IndexReader {
         if (!topValueCountsNode.isArray()) {
             throw new IllegalArgumentException("Invalid type: " + topValueCountsNode.getNodeType() +  " for top value counts. It should have type: " + JsonNodeType.ARRAY);
         }
-        
+
         ArrayNode valuesArrayNode = (ArrayNode) topValueNamesNode;
         ArrayNode countsArrayNode = (ArrayNode) topValueCountsNode;
         valuesArrayNode.elements().forEachRemaining(entry -> values.add(entry.toString()));

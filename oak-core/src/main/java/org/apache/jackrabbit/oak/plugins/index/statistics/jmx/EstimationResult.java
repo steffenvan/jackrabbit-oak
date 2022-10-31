@@ -4,17 +4,17 @@ public class EstimationResult {
     private final String propertyName;
     private final long count;
     private final long hllCount;
-    private final long avgLength;
-    private final long maxLength;
-    private final long minLength;
+    private final long valueLengthTotal;
+    private final long valueLengthMax;
+    private final long valueLengthMin;
 
-    public EstimationResult(String propertyName, long count, long hllCount, long avgLength, long maxLength, long minLength) {
+    public EstimationResult(String propertyName, long count, long hllCount, long valueLengthTotal, long valueLengthMax, long valueLengthMin) {
         this.propertyName = propertyName;
         this.count = count;
         this.hllCount = hllCount;
-        this.avgLength = avgLength;
-        this.maxLength = maxLength;
-        this.minLength = minLength;
+        this.valueLengthTotal = valueLengthTotal;
+        this.valueLengthMax = valueLengthMax;
+        this.valueLengthMin = valueLengthMin;
     }
 
     public long getCount() {
@@ -38,11 +38,11 @@ public class EstimationResult {
         result += ", ";
         result += entry("hll", hllCount);
         result += ", ";
-        result += entry("avgLength", String.format("%.2f", (double) avgLength / count));
+        result += entry("valueLengthTotal", valueLengthTotal);
         result += ", ";
-        result += entry("maxLength", maxLength);
+        result += entry("valueLengthMax", valueLengthMax);
         result += ", ";
-        result += entry("minLength", minLength);
+        result += entry("valueLengthMin", valueLengthMin);
         result += "}";
         return result;
     }
@@ -52,12 +52,9 @@ public class EstimationResult {
     }
 
     private String entry(String name, long val) {
-        return "\"" + name + "\"" + " : " + "\"" + val + "\"";
+        return "\"" + name + "\"" + " : " + val;
     }
 
-    private String entry(String name, double val) {
-        return "\"" + name + "\"" + " : " + "\"" + val + "\"";
-    }
     public static void main(String[] args) {
         long avgLength = 400L;
         long maxLength = 30000L;
