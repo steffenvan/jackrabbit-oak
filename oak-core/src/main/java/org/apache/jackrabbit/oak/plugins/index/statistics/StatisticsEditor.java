@@ -41,9 +41,9 @@ public class StatisticsEditor implements Editor {
 	public static final String VALUE_SKETCH_ROWS = "valueSketchRows";
 	public static final String VALUE_SKETCH_COLS = "valueSketchCols";
 
-	public static final String AVG_VALUE_LENGTH = "averageValueLength";
-	public final static String MAX_VALUE_LENGTH = "maxValueLength";
-	public final static String MIN_VALUE_LENGTH = "minValueLength";
+	public static final String VALUE_LENGTH_AVG = "valueLengthAverage";
+	public final static String VALUE_LENGTH_MAX = "valueLengthMax";
+	public final static String VALUE_LENGTH_MIN = "valueLengthMin";
 
 	private CountMinSketch propertyNameCMS;
 	private final Map<String, PropertyStatistics> propertyStatistics;
@@ -62,11 +62,8 @@ public class StatisticsEditor implements Editor {
 		this.propertyStatistics = propertyStatistics;
 		if (root.definition.hasChildNode(DATA_NODE_NAME)) {
 			NodeBuilder data = root.definition.getChildNode(DATA_NODE_NAME);
-			CountMinSketch cms = PropertyStatistics.readCMS(data.getNodeState(), PROPERTY_CMS_NAME, PROPERTY_CMS_ROWS,
+			this.propertyNameCMS = PropertyStatistics.readCMS(data.getNodeState(), PROPERTY_CMS_NAME, PROPERTY_CMS_ROWS,
 					PROPERTY_CMS_COLS, LOG);
-			if (cms != null) {
-				this.propertyNameCMS = cms;
-			}
 		}
 	}
 
@@ -137,9 +134,9 @@ public class StatisticsEditor implements Editor {
 
 			statNode.setProperty(VALUE_SKETCH_ROWS, (long) valueSketch.getRows(), Type.LONG);
 			statNode.setProperty(VALUE_SKETCH_COLS, (long) valueSketch.getCols(), Type.LONG);
-			statNode.setProperty(AVG_VALUE_LENGTH, propStats.getTotalValueLength(), Type.LONG);
-			statNode.setProperty(MAX_VALUE_LENGTH, propStats.getMaxLength(), Type.LONG);
-			statNode.setProperty(MIN_VALUE_LENGTH, propStats.getMinLength(), Type.LONG);
+			statNode.setProperty(VALUE_LENGTH_AVG, propStats.getValueLengthTotal(), Type.LONG);
+			statNode.setProperty(VALUE_LENGTH_MAX, propStats.getValueLengthMax(), Type.LONG);
+			statNode.setProperty(VALUE_LENGTH_MIN, propStats.getValueLengthMin(), Type.LONG);
 
 			// TODO: consider using HyperLogLog4TailCut64 so that we only store a long
 			// rather than array
@@ -250,7 +247,6 @@ public class StatisticsEditor implements Editor {
 		TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts);
 		CountMinSketch valueSketch = PropertyStatistics.readCMS(prop.getNodeState(), VALUE_SKETCH, VALUE_SKETCH_ROWS,
 				VALUE_SKETCH_COLS, LOG);
-
 		return new PropertyStatistics(propertyName, c, new HyperLogLog(64, hllData), valueSketch, topKElements);
 	}
 

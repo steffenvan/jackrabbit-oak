@@ -8,7 +8,7 @@ public class EstimationResult {
     private final long maxLength;
     private final long minLength;
 
-    EstimationResult(String propertyName, long count, long hllCount, long avgLength, long maxLength, long minLength) {
+    public EstimationResult(String propertyName, long count, long hllCount, long avgLength, long maxLength, long minLength) {
         this.propertyName = propertyName;
         this.count = count;
         this.hllCount = hllCount;
@@ -38,12 +38,11 @@ public class EstimationResult {
         result += ", ";
         result += entry("hll", hllCount);
         result += ", ";
-        result += entry("avgLength", avgLength);
+        result += entry("avgLength", String.format("%.2f", (double) avgLength / count));
         result += ", ";
         result += entry("maxLength", maxLength);
         result += ", ";
         result += entry("minLength", minLength);
-        result += ", ";
         result += "}";
         return result;
     }
@@ -53,6 +52,10 @@ public class EstimationResult {
     }
 
     private String entry(String name, long val) {
+        return "\"" + name + "\"" + " : " + "\"" + val + "\"";
+    }
+
+    private String entry(String name, double val) {
         return "\"" + name + "\"" + " : " + "\"" + val + "\"";
     }
     public static void main(String[] args) {
