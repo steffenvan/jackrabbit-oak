@@ -21,6 +21,9 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getStringOrEmpty;
+
 public class ContentStatistics extends AnnotatedStandardMBean implements ContentStatisticsMBean {
 
     private NodeStore store;
@@ -46,18 +49,15 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
             return null;
         }
         NodeState property = statisticsDataNode.getChildNode(PROPERTIES).getChildNode(name);
-        if (property == null) {
-            return null;
-        }
-        long count = property.getProperty("count").getValue(Type.LONG);
-        String storedHll = property.getProperty("uniqueHLL").getValue(Type.STRING);
-        long avgLength = property.getProperty(StatisticsEditor.AVG_VALUE_LENGTH).getValue(Type.LONG);
-        long maxLength = property.getProperty(StatisticsEditor.MAX_VALUE_LENGTH).getValue(Type.LONG);
-        long minLength = property.getProperty(StatisticsEditor.MIN_VALUE_LENGTH).getValue(Type.LONG);
+        long count = getLongOrZero(property.getProperty("count"));
+        String storedHll = getStringOrEmpty(property.getProperty("uniqueHLL"));
+        long valueLengthTotal = getLongOrZero(property.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
+        long valueLengthMax = getLongOrZero(property.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
+        long valueLengthMin = getLongOrZero(property.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
         byte[] hllCounts = HyperLogLog.deserialize(storedHll);
         HyperLogLog hll = new HyperLogLog(64, hllCounts);
 
-        return new EstimationResult(name, count, hll.estimate(), avgLength, maxLength, minLength);
+        return new EstimationResult(name, count, hll.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin);
     }
 
     private NodeState getStatisticsIndexDataNodeOrNull() {
@@ -114,9 +114,6 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         }
 
         NodeState properties = statisticsDataNode.getChildNode(PROPERTIES);
-        if (properties == null) {
-            return null;
-        }
 
         return getEstimationResults(properties);
 
@@ -147,8 +144,9 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     @Override
     public List<PropertyInfo> getTopKIndexedPropertiesForSingleProperty(String name, int k) {
         NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
+        assert statisticsDataNode != null;
         NodeState properties = statisticsDataNode.getChildNode(PROPERTIES);
-        if (properties == null || !properties.hasChildNode(name)) {
+        if (!properties.hasChildNode(name)) {
             return null;
         }
 
@@ -165,7 +163,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     public List<DetailedPropertyInfo> getPropertyInfoForSingleProperty(String name) {
         NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
         NodeState statisticsProperties = statisticsDataNode.getChildNode(PROPERTIES);
-        if (statisticsProperties == null || !statisticsProperties.hasChildNode(name)) {
+        if (!statisticsProperties.hasChildNode(name)) {
             return null;
         }
 
@@ -200,14 +198,14 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         String uniqueHll = child.getProperty("uniqueHLL").getValue(Type.STRING);
         byte[] hll = HyperLogLog.deserialize(uniqueHll);
 
-        long avgLength = child.getProperty(StatisticsEditor.AVG_VALUE_LENGTH).getValue(Type.LONG);
-        long maxLength = child.getProperty(StatisticsEditor.MAX_VALUE_LENGTH).getValue(Type.LONG);
-        long minLength = child.getProperty(StatisticsEditor.MIN_VALUE_LENGTH).getValue(Type.LONG);
+        long valueLengthTotal = getLongOrZero(child.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
+        long valueLengthMax = getLongOrZero(child.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
+        long valueLengthMin = getLongOrZero(child.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
 
         // TODO: read the first parameter from the node itself as well rather than
         // hard-coding 64
         HyperLogLog hllObj = new HyperLogLog(64, hll);
-        return new EstimationResult(name, count, hllObj.estimate(), avgLength, maxLength, minLength);
+        return new EstimationResult(name, count, hllObj.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin);
     }
 
     private List<EstimationResult> getEstimationResults(NodeState properties) {
