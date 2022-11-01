@@ -29,6 +29,8 @@ public class StatisticsEditor implements Editor {
 	public static final int DEFAULT_RESOLUTION = 1000;
 	public static final int DEFAULT_HLL_SIZE = 10;
 	public static final int K_ELEMENTS = 5;
+	public static final int CMS_ROWS = 5;
+	public static final int CMS_COLS = 16;
 
 	public static final String PROPERTY_CMS_NAME = "propertySketch";
 	public static final String PROPERTY_HLL_NAME = "uniqueHLL";
@@ -200,10 +202,11 @@ public class StatisticsEditor implements Editor {
 		if (ps == null) {
 			ps = readPropertyStatistics(propertyName);
 			if (ps == null) {
-				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64), new CountMinSketch(7, 32),
+				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64), new CountMinSketch(CMS_ROWS, CMS_COLS),
 						new TopKElements(new PriorityQueue<>(), K_ELEMENTS, new HashSet<>()));
 			}
 		}
+
 		long hash64 = Hash.hash64((val.hashCode()));
 		ps.updateHll(hash64);
 		propertyStatistics.put(propertyName, ps);
