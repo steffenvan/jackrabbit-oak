@@ -41,7 +41,7 @@ public class StatisticsEditor implements Editor {
 	public static final String VALUE_SKETCH_ROWS = "valueSketchRows";
 	public static final String VALUE_SKETCH_COLS = "valueSketchCols";
 
-	public static final String VALUE_LENGTH_AVG = "valueLengthAverage";
+	public static final String VALUE_LENGTH_TOTAL = "valueLengthTotal";
 	public final static String VALUE_LENGTH_MAX = "valueLengthMax";
 	public final static String VALUE_LENGTH_MIN = "valueLengthMin";
 
@@ -134,7 +134,7 @@ public class StatisticsEditor implements Editor {
 
 			statNode.setProperty(VALUE_SKETCH_ROWS, (long) valueSketch.getRows(), Type.LONG);
 			statNode.setProperty(VALUE_SKETCH_COLS, (long) valueSketch.getCols(), Type.LONG);
-			statNode.setProperty(VALUE_LENGTH_AVG, propStats.getValueLengthTotal(), Type.LONG);
+			statNode.setProperty(VALUE_LENGTH_TOTAL, propStats.getValueLengthTotal(), Type.LONG);
 			statNode.setProperty(VALUE_LENGTH_MAX, propStats.getValueLengthMax(), Type.LONG);
 			statNode.setProperty(VALUE_LENGTH_MIN, propStats.getValueLengthMin(), Type.LONG);
 
