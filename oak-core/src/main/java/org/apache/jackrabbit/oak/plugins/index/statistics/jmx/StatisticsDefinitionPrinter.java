@@ -36,7 +36,6 @@ public class StatisticsDefinitionPrinter implements InventoryPrinter {
 	public void print(PrintWriter printWriter, Format format, boolean isZip) {
 		if (format == Format.JSON) {
 			JsopBuilder json = new JsopBuilder();
-			json.object();
 
 			// oak:index/statistics/index
 			NodeState statisticsNode = getStatisticsIndexDataNodeOrNull();
@@ -45,7 +44,6 @@ public class StatisticsDefinitionPrinter implements InventoryPrinter {
 			}
 
 			createSerializer(json).serialize(statisticsNode);
-			json.endObject();
 			printWriter.print(JsopBuilder.prettyPrint(json.toString()));
 		}
 	}
