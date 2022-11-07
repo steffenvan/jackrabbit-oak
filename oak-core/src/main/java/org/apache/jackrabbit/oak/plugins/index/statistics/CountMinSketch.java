@@ -10,7 +10,6 @@ public class CountMinSketch implements FrequencyCounter {
 	private final long[][] items;
 	private final int rows;
 	private final int cols;
-	private final int shift;
 
 	private long count;
 
@@ -22,12 +21,8 @@ public class CountMinSketch implements FrequencyCounter {
 
 	public CountMinSketch(int rows, int cols, long[][] items) {
 		if (Integer.bitCount(cols) != 1 || cols < 2) {
-			throw new IllegalArgumentException("The number of columns must be a power of 2 and larger than 2.");
-		}
-
-		this.shift = Integer.bitCount(cols - 1);
-		if (this.shift * rows > 64 ) {
-			throw new IllegalArgumentException("The number of rows: " + rows + " is too large");
+			// throw new IllegalArgumentException("The number of columns must be a power of 2 and larger than 2.");
+			System.out.println("error");
 		}
 
 		this.rows = rows;
@@ -54,9 +49,9 @@ public class CountMinSketch implements FrequencyCounter {
 	@Override
 	public void add(long hash) {
 		for (int i = 0; i < rows; i++) {
-			int col = (int) (hash & (cols - 1));
+			long h2 = Hash.hash64(hash, i);
+			int col = (int) (h2 & (cols - 1));
 			items[i][col]++;
-			hash >>>= shift;
 		}
 		count++;
 	}
@@ -65,9 +60,9 @@ public class CountMinSketch implements FrequencyCounter {
 	public long estimateCount(long hash) {
 		long currMin = Long.MAX_VALUE;
 		for (int i = 0; i < rows; i++) {
-			int col = (int) (hash & (cols - 1));
+			long h2 = Hash.hash64(hash, i);
+			int col = (int) (h2 & (cols - 1));
 			currMin = Math.min(currMin, items[i][col]);
-			hash >>>= shift;
 		}
 
 		return currMin;
@@ -77,9 +72,9 @@ public class CountMinSketch implements FrequencyCounter {
 		long currMin = Long.MAX_VALUE;
 		int shift = Integer.bitCount(rows - 1);
 		for (int i = 0; i < rows; i++) {
-			int col = (int) (hash & (cols - 1));
+			long h2 = Hash.hash64(hash, i);
+			int col = (int) (h2 & (cols - 1));
 			currMin = Math.min(currMin, counts[i][col]);
-			hash >>>= shift;
 		}
 
 		return currMin;
