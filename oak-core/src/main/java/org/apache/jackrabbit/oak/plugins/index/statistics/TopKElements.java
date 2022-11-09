@@ -1,17 +1,13 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.PriorityQueue;
-import java.util.Set;
+import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
+
+import java.util.*;
 
 public class TopKElements {
 	private final int k;
 	private final PriorityQueue<ValueCountPair> topValues;
-	private final HashSet<String> currValues;
+	private final Set<String> currValues;
 
 	public static class ValueCountPair implements Comparable<ValueCountPair> {
 		String value;
@@ -46,12 +42,25 @@ public class TopKElements {
 			ValueCountPair other = (ValueCountPair) o;
 			return this.value.equals(other.value);
 		}
+
+		private String entry(String name, long val) {
+			name = JsopBuilder.encode(name);
+			return name + " : " + val;
+		}
+		@Override
+		public String toString() {
+			return entry(value, count);
+		}
 	}
 
-	public TopKElements(PriorityQueue<ValueCountPair> topValues, int k, HashSet<String> currValues) {
+	public TopKElements(PriorityQueue<ValueCountPair> topValues, int k, Set<String> currValues) {
 		this.topValues = topValues;
 		this.k = k;
 		this.currValues = currValues;
+	}
+
+	public PriorityQueue<ValueCountPair> getTopK() {
+		return new PriorityQueue<>(topValues);
 	}
 
 	public void clear() {
@@ -64,7 +73,7 @@ public class TopKElements {
 		if (currValues.contains(value)) {
 			currValues.remove(value);
 			// if the current value is already in the priority queue it will have an outdated count, which is why we
-			// remove it and re-insert it with the updated count
+			// remove it and re-insert it with the   d count
 			topValues.remove(curr);
 		}
 
@@ -83,15 +92,15 @@ public class TopKElements {
 		}
 	}
 
-	public List<PropertyInfo> get() {
-		List<PropertyInfo> propertyInfos = new ArrayList<>();
-		topValues.forEach(x -> propertyInfos.add(new PropertyInfo(x.value, x.count)));
-		propertyInfos.sort(Comparator.comparing(PropertyInfo::getCount).reversed());
+	public List<TopKPropertyInfo> get() {
+		List<TopKPropertyInfo> topKPropertyInfos = new ArrayList<>();
+		topValues.forEach(x -> topKPropertyInfos.add(new TopKPropertyInfo(x.value, x.count)));
+		topKPropertyInfos.sort(Comparator.comparing(TopKPropertyInfo::getCount).reversed());
 
 		// the number of property values can sometimes be less than k
-		int topElementIdx = Math.min(propertyInfos.size(), k);
+		int topElementIdx = Math.min(topKPropertyInfos.size(), k);
 
-		return propertyInfos.subList(0, topElementIdx);
+		return topKPropertyInfos.subList(0, topElementIdx);
 	}
 
 	public int size() {
@@ -99,25 +108,36 @@ public class TopKElements {
 	}
 
 	public static PriorityQueue<ValueCountPair> deserialize(Iterable<String> names, Iterable<Long> counts, int k) {
-		Iterator<String> namesIter = names.iterator();
+		Iterator<String> valuesIter = names.iterator();
 		Iterator<Long> countsIter = counts.iterator();
-		PriorityQueue<ValueCountPair> topValues = new PriorityQueue<>();
+		Set<String> currValues = new HashSet<>();
+		PriorityQueue<ValueCountPair> topKValues = new PriorityQueue<>();
 
-		while (namesIter.hasNext() && countsIter.hasNext()) {
-			String name = namesIter.next();
+		while (valuesIter.hasNext() && countsIter.hasNext()) {
+			String value = valuesIter.next();
 			Long count = countsIter.next();
-			if (topValues.size() >= k) {
-				ValueCountPair top = topValues.peek();
+			ValueCountPair curr = new ValueCountPair(value, count);
+			if (currValues.contains(value)) {
+				currValues.remove(value);
+				topKValues.remove(curr);
+			}
+
+			if (topKValues.size() >= k) {
+				ValueCountPair top = topKValues.peek();
 				assert top != null;
 				if (count >= top.count) {
-					topValues.poll();
-					topValues.offer(new ValueCountPair(name, count));
+					ValueCountPair old = topKValues.poll();
+					currValues.remove(old.value);
 				}
-			} else {
-				topValues.offer(new ValueCountPair(name, count));
+			}
+
+			if (topKValues.size() < k) {
+				topKValues.offer(curr);
+				currValues.add(value);
 			}
 		}
-		return topValues;
+
+		return topKValues;
 	}
 
 	public Set<String> getNames() {
@@ -130,14 +150,7 @@ public class TopKElements {
 
 	@Override
 	public String toString() {
-		List<PropertyInfo> topKSortedValues = get();
-		StringBuilder sb = new StringBuilder();
-
-		for (PropertyInfo pi : topKSortedValues) {
-			sb.append(pi.toString());
-			sb.append(" ");
-		}
-
-		return sb.toString();
+		List<TopKPropertyInfo> topKSortedValues = get();
+		return JsopBuilder.encode(topKSortedValues.toString());
 	}
 }

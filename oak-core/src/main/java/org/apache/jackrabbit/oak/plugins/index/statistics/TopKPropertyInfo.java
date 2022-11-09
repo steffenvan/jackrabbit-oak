@@ -1,5 +1,7 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
+
 public class TopKPropertyInfo {
 
 	private final String name;
@@ -18,14 +20,12 @@ public class TopKPropertyInfo {
 		return name;
 	}
 
-	private String entry(String name, long val) {
-		if (name.contains("\"")){
-			name = name.replace("\"", "\\\"");
-		}
-		return "\"" + name + "\"" + " : " + val;
-	}
+//	private String entry(String name, long val) {
+//		JsopBuilder.encode(name);
+//		return name + " : " + val;
+//	}
 	@Override
 	public String toString() {
-		return entry(name, count);
+		return "(" + name + ", " + count + ")";
 	}
 }
