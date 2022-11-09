@@ -1,6 +1,7 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
@@ -9,7 +10,7 @@ import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
 import org.apache.jackrabbit.oak.plugins.index.statistics.CountMinSketch;
 import org.apache.jackrabbit.oak.plugins.index.statistics.Hash;
 import org.apache.jackrabbit.oak.plugins.index.statistics.HyperLogLog;
-import org.apache.jackrabbit.oak.plugins.index.statistics.PropertyInfo;
+import org.apache.jackrabbit.oak.plugins.index.statistics.TopKPropertyInfo;
 import org.apache.jackrabbit.oak.plugins.index.statistics.PropertyStatistics;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
 import org.apache.jackrabbit.oak.plugins.index.statistics.TopKElements;
@@ -48,16 +49,25 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         if (statisticsDataNode == null) {
             return null;
         }
+
         NodeState property = statisticsDataNode.getChildNode(PROPERTIES).getChildNode(name);
         long count = getLongOrZero(property.getProperty("count"));
-        String storedHll = getStringOrEmpty(property.getProperty("uniqueHLL"));
         long valueLengthTotal = getLongOrZero(property.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
         long valueLengthMax = getLongOrZero(property.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
         long valueLengthMin = getLongOrZero(property.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
+
+        CountMinSketch cms = PropertyStatistics.readCMS(statisticsDataNode, StatisticsEditor.PROPERTY_CMS_NAME, StatisticsEditor.PROPERTY_CMS_ROWS, StatisticsEditor.PROPERTY_CMS_COLS, CS_LOG);
+        long hash64 = Hash.hash64(name.hashCode());
+
+        String storedHll = getStringOrEmpty(property.getProperty("uniqueHLL"));
         byte[] hllCounts = HyperLogLog.deserialize(storedHll);
         HyperLogLog hll = new HyperLogLog(64, hllCounts);
+        PropertyState topKValueNames = property.getProperty(StatisticsEditor.PROPERTY_TOPK_NAME);
+        PropertyState topKValueCounts = property.getProperty(StatisticsEditor.PROPERTY_TOPK_COUNT);
+        long topK = getLongOrZero(property.getProperty(StatisticsEditor.PROPERTY_TOP_K));
+        TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, (int) topK);
 
-        return new EstimationResult(name, count, hll.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin);
+        return new EstimationResult(name, count, cms.estimateCount(hash64), hll.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin, topKElements.toString());
     }
 
     private NodeState getStatisticsIndexDataNodeOrNull() {
@@ -113,9 +123,9 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
             return null;
         }
 
-        NodeState properties = statisticsDataNode.getChildNode(PROPERTIES);
+//        NodeState properties = statisticsDataNode.getChildNode(PROPERTIES);
 
-        return getEstimationResults(properties);
+        return getEstimationResults(statisticsDataNode);
 
     }
 
@@ -142,7 +152,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     }
 
     @Override
-    public List<PropertyInfo> getTopKIndexedPropertiesForSingleProperty(String name, int k) {
+    public List<TopKPropertyInfo> getTopKIndexedPropertiesForSingleProperty(String name, int k) {
         NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
         assert statisticsDataNode != null;
         NodeState properties = statisticsDataNode.getChildNode(PROPERTIES);
@@ -176,51 +186,89 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
         PropertyState topKValueNames = propertyNode.getProperty(PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = propertyNode.getProperty(PROPERTY_TOP_K_COUNT);
-        TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, 5);
+        PropertyState kProp = propertyNode.getProperty(StatisticsEditor.PROPERTY_TOP_K);
+        int k = Math.toIntExact(kProp.getValue(Type.LONG));
 
-        List<PropertyInfo> topK = topKElements.get();
+        TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, k);
+
+        List<TopKPropertyInfo> topK = topKElements.get();
         List<DetailedPropertyInfo> dpis = new ArrayList<>();
-        for (PropertyInfo pi : topK) {
+        for (TopKPropertyInfo pi : topK) {
             DetailedPropertyInfo dpi = new DetailedPropertyInfo(pi.getName(), pi.getCount(), totalCount);
             dpis.add(dpi);
         }
 
-        long topKTotalCount = dpis.stream().mapToLong(x -> x.getCount()).sum();
+        long topKTotalCount = dpis.stream().mapToLong(DetailedPropertyInfo::getCount).sum();
         DetailedPropertyInfo totalInfo = new DetailedPropertyInfo("TopKCount", topKTotalCount, totalCount);
         dpis.add(totalInfo);
 
         return dpis;
     }
 
-    private EstimationResult getSingleEstimationResult(String name, NodeState properties) {
-        NodeState child = properties.getChildNode(name);
-        long count = child.getProperty("count").getValue(Type.LONG);
-        String uniqueHll = child.getProperty("uniqueHLL").getValue(Type.STRING);
-        byte[] hll = HyperLogLog.deserialize(uniqueHll);
+    private EstimationResult getSingleEstimationResult(String name, NodeState indexNode) {
+        NodeState properties = indexNode.getChildNode(PROPERTIES);
+        NodeState propertyNode = properties.getChildNode(name);
 
-        long valueLengthTotal = getLongOrZero(child.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
-        long valueLengthMax = getLongOrZero(child.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
-        long valueLengthMin = getLongOrZero(child.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
+        long count = propertyNode.getProperty("count").getValue(Type.LONG);
+        String uniqueHll = propertyNode.getProperty("uniqueHLL").getValue(Type.STRING);
+
+        long valueLengthTotal = getLongOrZero(propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
+        long valueLengthMax = getLongOrZero(propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
+        long valueLengthMin = getLongOrZero(propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
 
         // TODO: read the first parameter from the node itself as well rather than
         // hard-coding 64
+        CountMinSketch cms = PropertyStatistics.readCMS(indexNode, StatisticsEditor.PROPERTY_CMS_NAME, StatisticsEditor.PROPERTY_CMS_ROWS, StatisticsEditor.PROPERTY_CMS_COLS, CS_LOG);
+        long hash64 = Hash.hash64(name.hashCode());
+
+        byte[] hll = HyperLogLog.deserialize(uniqueHll);
         HyperLogLog hllObj = new HyperLogLog(64, hll);
-        return new EstimationResult(name, count, hllObj.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin);
+        PropertyState topKValueNames = propertyNode.getProperty(StatisticsEditor.PROPERTY_TOPK_NAME);
+        PropertyState topKValueCounts = propertyNode.getProperty(StatisticsEditor.PROPERTY_TOPK_COUNT);
+        PropertyState topK = propertyNode.getProperty(StatisticsEditor.PROPERTY_TOP_K);
+        TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, topK);
+
+        return new EstimationResult(name, count, cms.estimateCount(hash64), hllObj.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin, topKElements.toString());
     }
 
-    private List<EstimationResult> getEstimationResults(NodeState properties) {
+    private List<EstimationResult> getEstimationResults(NodeState indexNode) {
         List<EstimationResult> propertyCounts = new ArrayList<>();
 
-        for (ChildNodeEntry child : properties.getChildNodeEntries()) {
-            propertyCounts.add(getSingleEstimationResult(child.getName(), properties));
+        for (ChildNodeEntry child : indexNode.getChildNode(PROPERTIES).getChildNodeEntries()) {
+            propertyCounts.add(getSingleEstimationResult(child.getName(), indexNode));
         }
-        return propertyCounts;
+        return propertyCounts.stream().sorted(Comparator.comparing(EstimationResult::getCount).reversed().thenComparingLong(EstimationResult::getHllCount)).collect(Collectors.toList());
+
+//        return propertyCounts.stream().sorted(Comparator.comparing(EstimationResult::getCount).reversed()).filter(x -> x.getHllCount() < 5).collect(Collectors.toList());
     }
 
     // TODO: create method for getting the estimation of the value themselves.
     // jcr:primaryType for instance.
     // if it's part of the top K, return
     // otherwie use cms to estimate.
+
+    private TopKElements readTopKElements(PropertyState valueNames, PropertyState valueCounts, PropertyState topK) {
+        int k = Math.toIntExact(topK.getValue(Type.LONG));
+        if (valueNames != null && valueCounts != null) {
+            @NotNull
+            Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
+            @NotNull
+            Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
+            PriorityQueue<TopKElements.ValueCountPair> topValues = TopKElements.deserialize(valueNamesIter, valueCountsIter, k);
+            Set<String> currValues = toSet(valueNamesIter);
+            return new TopKElements(topValues, k, currValues);
+        }
+
+        return new TopKElements(new PriorityQueue<>(), k, new HashSet<>());
+    }
+
+    private Set<String> toSet(Iterable<String> valueNamesIter) {
+        Set<String> currValues = new HashSet<>();
+        for (String v : valueNamesIter) {
+            currValues.add(v);
+        }
+        return currValues;
+    }
 
     private TopKElements readTopKElements(PropertyState valueNames, PropertyState valueCounts, int k) {
         if (valueNames != null && valueCounts != null) {
@@ -229,7 +277,8 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
             @NotNull
             Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
             PriorityQueue<TopKElements.ValueCountPair> topValues = TopKElements.deserialize(valueNamesIter, valueCountsIter, k);
-            return new TopKElements(topValues, k, new HashSet<>());
+            Set<String> currValues = toSet(valueNamesIter);
+            return new TopKElements(topValues, k, currValues);
         }
 
         return new TopKElements(new PriorityQueue<>(), k, new HashSet<>());
