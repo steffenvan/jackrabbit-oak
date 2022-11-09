@@ -45,6 +45,10 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
 	public static final String SEED = "seed";
 
     public static final String COMMON_PROPERTY_THRESHOLD = "commonPropertyThreshold";
+    public static final String PROPERTY_CMS_ROWS = "propertyCMSRows";
+    public static final String PROPERTY_CMS_COLS = "propertyCMSCols";
+    public static final String VALUE_CMS_ROWS = "valueCMSRows";
+    public static final String VALUE_CMS_COLS = "valueCMSCols";
 
     @Override
     @Nullable
@@ -81,11 +85,29 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
             commonPropertyThreshold = s.getValue(Type.LONG).intValue();
         }
 
+        PropertyState rows = definition.getProperty(PROPERTY_CMS_ROWS);
+        PropertyState cols = definition.getProperty(PROPERTY_CMS_COLS);
+        int propertyCMSRows = 7;
+        int propertyCMSCols = 64;
+        if (rows != null && cols != null) {
+            propertyCMSRows = rows.getValue(Type.LONG).intValue();
+            propertyCMSCols = cols.getValue(Type.LONG).intValue();
+        }
+
+        rows = definition.getProperty(VALUE_CMS_ROWS);
+        cols = definition.getProperty(VALUE_CMS_COLS);
+        int valueCMSRows = 5;
+        int valueCMSCols = 32;
+        if (rows != null && cols != null) {
+            propertyCMSRows = rows.getValue(Type.LONG).intValue();
+            propertyCMSCols = cols.getValue(Type.LONG).intValue();
+        }
+
         StatisticsEditor.StatisticsRoot rootData = new StatisticsEditor.StatisticsRoot(
                 resolution, seed, definition, root, callback, commonPropertyThreshold);
-        CountMinSketch cms = new CountMinSketch(StatisticsEditor.CMS_ROWS, StatisticsEditor.CMS_COLS);
+        CountMinSketch cms = new CountMinSketch(propertyCMSRows, propertyCMSCols);
         Map<String, PropertyStatistics> propertyStatistics = new HashMap<>();
 
-        return new StatisticsEditor(rootData, cms, propertyStatistics);
+        return new StatisticsEditor(rootData, cms, propertyStatistics, valueCMSRows, valueCMSCols);
     }
 }

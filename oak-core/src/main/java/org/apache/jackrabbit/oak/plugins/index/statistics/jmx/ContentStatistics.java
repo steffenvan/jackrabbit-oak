@@ -56,7 +56,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         long valueLengthMax = getLongOrZero(property.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
         long valueLengthMin = getLongOrZero(property.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
 
-        CountMinSketch cms = PropertyStatistics.readCMS(statisticsDataNode, StatisticsEditor.PROPERTY_CMS_NAME, StatisticsEditor.PROPERTY_CMS_ROWS, StatisticsEditor.PROPERTY_CMS_COLS, CS_LOG);
+        CountMinSketch cms = PropertyStatistics.readCMS(statisticsDataNode, StatisticsEditor.PROPERTY_CMS_NAME, StatisticsEditor.PROPERTY_CMS_ROWS_NAME, StatisticsEditor.PROPERTY_CMS_COLS_NAME, CS_LOG);
         long hash64 = Hash.hash64(name.hashCode());
 
         String storedHll = getStringOrEmpty(property.getProperty("uniqueHLL"));
@@ -178,7 +178,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         }
 
         CountMinSketch nameSketch = PropertyStatistics.readCMS(statisticsDataNode, StatisticsEditor.PROPERTY_CMS_NAME,
-                StatisticsEditor.PROPERTY_CMS_ROWS, StatisticsEditor.PROPERTY_CMS_COLS, CS_LOG);
+                                                               StatisticsEditor.PROPERTY_CMS_ROWS_NAME, StatisticsEditor.PROPERTY_CMS_COLS_NAME, CS_LOG);
 
         long totalCount = nameSketch.estimateCount(Hash.hash64(name.hashCode()));
 
@@ -218,7 +218,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
         // TODO: read the first parameter from the node itself as well rather than
         // hard-coding 64
-        CountMinSketch cms = PropertyStatistics.readCMS(indexNode, StatisticsEditor.PROPERTY_CMS_NAME, StatisticsEditor.PROPERTY_CMS_ROWS, StatisticsEditor.PROPERTY_CMS_COLS, CS_LOG);
+        CountMinSketch cms = PropertyStatistics.readCMS(indexNode, StatisticsEditor.PROPERTY_CMS_NAME, StatisticsEditor.PROPERTY_CMS_ROWS_NAME, StatisticsEditor.PROPERTY_CMS_COLS_NAME, CS_LOG);
         long hash64 = Hash.hash64(name.hashCode());
 
         byte[] hll = HyperLogLog.deserialize(uniqueHll);

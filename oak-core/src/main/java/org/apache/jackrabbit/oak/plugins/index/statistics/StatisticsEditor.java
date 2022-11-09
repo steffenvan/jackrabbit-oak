@@ -29,8 +29,6 @@ public class StatisticsEditor implements Editor {
 	public static final int DEFAULT_RESOLUTION = 1000;
 	public static final int DEFAULT_HLL_SIZE = 10;
 	public static final int K_ELEMENTS = 5;
-	public static final int CMS_ROWS = 7;
-	public static final int CMS_COLS = 64;
 
 	public static final String PROPERTY_CMS_NAME = "propertySketch";
 	public static final String PROPERTY_HLL_NAME = "uniqueHLL";
@@ -38,8 +36,8 @@ public class StatisticsEditor implements Editor {
 	public static final String PROPERTY_TOPK_COUNT = "mostFrequentValueCounts";
 
 	public static final String PROPERTY_TOP_K = "topK";
-	public static final String PROPERTY_CMS_ROWS = "propertyCMSRows";
-	public static final String PROPERTY_CMS_COLS = "propertyCMSCols";
+	public static final String PROPERTY_CMS_ROWS_NAME = "propertyCMSRows";
+	public static final String PROPERTY_CMS_COLS_NAME = "propertyCMSCols";
 
 	public static final String VALUE_SKETCH = "valueSketch";
 	public static final String VALUE_SKETCH_ROWS = "valueSketchRows";
@@ -49,6 +47,12 @@ public class StatisticsEditor implements Editor {
 	public final static String VALUE_LENGTH_MAX = "valueLengthMax";
 	public final static String VALUE_LENGTH_MIN = "valueLengthMin";
 
+	// property cms parameters are not final as we read them in from the
+	// NodeBuilder in the provider. We then create the sketch and inject it this
+	// constructor. Since we don't create the value CMS outside this editor,
+	// we keep them final.
+	private final int valueCMSRows;
+	private final int valueCMSCols;
 	private CountMinSketch propertyNameCMS;
 	private final Map<String, PropertyStatistics> propertyStatistics;
 	private final StatisticsRoot root;
@@ -58,16 +62,18 @@ public class StatisticsEditor implements Editor {
 	private int recursionLevel;
 
 	StatisticsEditor(StatisticsRoot root, CountMinSketch propertyNameCMS,
-			Map<String, PropertyStatistics> propertyStatistics) {
+					 Map<String, PropertyStatistics> propertyStatistics, int valueCMSRows, int valueCMSCols) {
 		this.root = root;
 		this.name = "/";
 		this.parent = null;
+		this.valueCMSRows = valueCMSRows;
+		this.valueCMSCols = valueCMSCols;
 		this.propertyNameCMS = propertyNameCMS;
 		this.propertyStatistics = propertyStatistics;
 		if (root.definition.hasChildNode(DATA_NODE_NAME)) {
 			NodeBuilder data = root.definition.getChildNode(DATA_NODE_NAME);
-			this.propertyNameCMS = PropertyStatistics.readCMS(data.getNodeState(), PROPERTY_CMS_NAME, PROPERTY_CMS_ROWS,
-					PROPERTY_CMS_COLS, LOG);
+			this.propertyNameCMS = PropertyStatistics.readCMS(data.getNodeState(), PROPERTY_CMS_NAME, PROPERTY_CMS_ROWS_NAME,
+															  PROPERTY_CMS_COLS_NAME, LOG);
 		}
 	}
 
@@ -116,8 +122,8 @@ public class StatisticsEditor implements Editor {
 			data.setProperty(PROPERTY_CMS_NAME + i, cmsSerialized[i]);
 		}
 
-		data.setProperty(PROPERTY_CMS_ROWS, propertyNameCMS.getRows());
-		data.setProperty(PROPERTY_CMS_COLS, propertyNameCMS.getCols());
+		data.setProperty(PROPERTY_CMS_ROWS_NAME, propertyNameCMS.getRows());
+		data.setProperty(PROPERTY_CMS_COLS_NAME, propertyNameCMS.getCols());
 
 		for (Map.Entry<String, PropertyStatistics> e : propertyStatistics.entrySet()) {
 			NodeBuilder statNode = properties.child(e.getKey());
@@ -202,14 +208,14 @@ public class StatisticsEditor implements Editor {
 		if (ps == null) {
 			ps = readPropertyStatistics(propertyName);
 			if (ps == null) {
-				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64), new CountMinSketch(CMS_ROWS, CMS_COLS),
+				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64), new CountMinSketch(valueCMSRows, valueCMSCols),
 						new TopKElements(new PriorityQueue<>(), K_ELEMENTS, new HashSet<>()));
 			}
 		}
 
 		String value = val.toString();
 		if (value.length() > 128) {
-			value = value.substring(0, 128) + "... [" + value.hashCode() + "]";
+			value = value.substring(0, 128) + " ... [" + value.hashCode() + "]";
 		}
 		long hash64 = Hash.hash64((value.hashCode()));
 		ps.updateHll(hash64);
