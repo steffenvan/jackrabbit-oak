@@ -42,16 +42,16 @@ public class PropertyStatistics {
 		hll.add(hash);
 	}
 
-	void updateValueCounts(Object val, long hash) {
+	void updateValueCounts(String val, long hash) {
 		valueSketch.add(hash);
 		topKElements.update(val, valueSketch.estimateCount(hash));
-		long len = val.toString().length();
+		long len = val.length();
 		valueLengthTotal += len;
 		valueLengthMax = Math.max(valueLengthMax, len);
 		valueLengthMin = Math.min(valueLengthMin, len);
 	}
 
-	List<PropertyInfo> getTopKValuesDescending() {
+	List<TopKPropertyInfo> getTopKValuesDescending() {
 		return topKElements.get();
 	}
 
@@ -110,5 +110,9 @@ public class PropertyStatistics {
 
 	void inc(long count) {
 		this.count += count;
+	}
+
+	public long getCmsCount(long hash) {
+		return valueSketch.estimateCount(hash);
 	}
 }
