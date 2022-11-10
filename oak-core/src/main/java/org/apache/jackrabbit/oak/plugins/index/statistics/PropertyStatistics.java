@@ -51,7 +51,7 @@ public class PropertyStatistics {
 		valueLengthMin = Math.min(valueLengthMin, len);
 	}
 
-	List<TopKPropertyInfo> getTopKValuesDescending() {
+	List<TopKElements.ValueCountPair> getTopKValuesDescending() {
 		return topKElements.get();
 	}
 

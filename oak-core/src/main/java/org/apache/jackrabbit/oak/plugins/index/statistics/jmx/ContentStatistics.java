@@ -10,7 +10,6 @@ import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
 import org.apache.jackrabbit.oak.plugins.index.statistics.CountMinSketch;
 import org.apache.jackrabbit.oak.plugins.index.statistics.Hash;
 import org.apache.jackrabbit.oak.plugins.index.statistics.HyperLogLog;
-import org.apache.jackrabbit.oak.plugins.index.statistics.TopKPropertyInfo;
 import org.apache.jackrabbit.oak.plugins.index.statistics.PropertyStatistics;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
 import org.apache.jackrabbit.oak.plugins.index.statistics.TopKElements;
@@ -67,7 +66,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         long topK = getLongOrZero(property.getProperty(StatisticsEditor.PROPERTY_TOP_K));
         TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, (int) topK);
 
-        return new EstimationResult(name, count, cms.estimateCount(hash64), hll.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin, topKElements.toString());
+        return new EstimationResult(name, count, cms.estimateCount(hash64), hll.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin, topKElements);
     }
 
     private NodeState getStatisticsIndexDataNodeOrNull() {
@@ -152,7 +151,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     }
 
     @Override
-    public List<TopKPropertyInfo> getTopKIndexedPropertiesForSingleProperty(String name, int k) {
+    public List<TopKElements.ValueCountPair> getTopKIndexedPropertiesForSingleProperty(String name, int k) {
         NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
         assert statisticsDataNode != null;
         NodeState properties = statisticsDataNode.getChildNode(PROPERTIES);
@@ -191,10 +190,10 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
         TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, k);
 
-        List<TopKPropertyInfo> topK = topKElements.get();
+        List<TopKElements.ValueCountPair> topK = topKElements.get();
         List<DetailedPropertyInfo> dpis = new ArrayList<>();
-        for (TopKPropertyInfo pi : topK) {
-            DetailedPropertyInfo dpi = new DetailedPropertyInfo(pi.getName(), pi.getCount(), totalCount);
+        for (TopKElements.ValueCountPair pi : topK) {
+            DetailedPropertyInfo dpi = new DetailedPropertyInfo(pi.getValue(), pi.getCount(), totalCount);
             dpis.add(dpi);
         }
 
@@ -228,7 +227,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         PropertyState topK = propertyNode.getProperty(StatisticsEditor.PROPERTY_TOP_K);
         TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, topK);
 
-        return new EstimationResult(name, count, cms.estimateCount(hash64), hllObj.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin, topKElements.toString());
+        return new EstimationResult(name, count, cms.estimateCount(hash64), hllObj.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin, topKElements);
     }
 
     private List<EstimationResult> getEstimationResults(NodeState indexNode) {
@@ -248,18 +247,18 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     // otherwie use cms to estimate.
 
     private TopKElements readTopKElements(PropertyState valueNames, PropertyState valueCounts, PropertyState topK) {
-        int k = Math.toIntExact(topK.getValue(Type.LONG));
         if (valueNames != null && valueCounts != null) {
             @NotNull
             Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
             @NotNull
             Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
+            int k = Math.toIntExact(topK.getValue(Type.LONG));
             PriorityQueue<TopKElements.ValueCountPair> topValues = TopKElements.deserialize(valueNamesIter, valueCountsIter, k);
             Set<String> currValues = toSet(valueNamesIter);
             return new TopKElements(topValues, k, currValues);
         }
 
-        return new TopKElements(new PriorityQueue<>(), k, new HashSet<>());
+        return new TopKElements(new PriorityQueue<>(), StatisticsEditor.K_ELEMENTS, new HashSet<>());
     }
 
     private Set<String> toSet(Iterable<String> valueNamesIter) {

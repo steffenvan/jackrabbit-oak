@@ -1,8 +1,15 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
-import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.PriorityQueue;
+import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Comparator;
 
 public class TopKElements {
 	private final int k;
@@ -23,6 +30,13 @@ public class TopKElements {
 			return Long.compare(count, o.count);
 		}
 
+		public Long getCount() {
+			return count;
+		}
+
+		public String getValue() {
+			return value;
+		}
 		@Override
 		public int hashCode() {
 		    return value.hashCode();
@@ -43,13 +57,13 @@ public class TopKElements {
 			return this.value.equals(other.value);
 		}
 
-		private String entry(String name, long val) {
-			name = JsopBuilder.encode(name);
-			return name + " : " + val;
-		}
 		@Override
 		public String toString() {
-			return entry(value, count);
+			try {
+				return new ObjectMapper().writeValueAsString(this);
+			} catch (JsonProcessingException e) {
+				throw new RuntimeException(e);
+			}
 		}
 	}
 
@@ -92,15 +106,17 @@ public class TopKElements {
 		}
 	}
 
-	public List<TopKPropertyInfo> get() {
-		List<TopKPropertyInfo> topKPropertyInfos = new ArrayList<>();
-		topValues.forEach(x -> topKPropertyInfos.add(new TopKPropertyInfo(x.value, x.count)));
-		topKPropertyInfos.sort(Comparator.comparing(TopKPropertyInfo::getCount).reversed());
+	// TODO: This function currently pops the whole priority queue. This should
+	// be optimized such that we only do it for min(k, pq.size()).
+	public List<ValueCountPair> get() {
+		List<ValueCountPair> valueCountPairs = new ArrayList<>();
+		topValues.forEach(x -> valueCountPairs.add(new ValueCountPair(x.value, x.count)));
+		valueCountPairs.sort(Comparator.comparing(ValueCountPair::getCount).reversed());
 
 		// the number of property values can sometimes be less than k
-		int topElementIdx = Math.min(topKPropertyInfos.size(), k);
+		int topElementIdx = Math.min(valueCountPairs.size(), k);
 
-		return topKPropertyInfos.subList(0, topElementIdx);
+		return valueCountPairs.subList(0, topElementIdx);
 	}
 
 	public int size() {
@@ -148,9 +164,39 @@ public class TopKElements {
 		return names;
 	}
 
-	@Override
-	public String toString() {
-		List<TopKPropertyInfo> topKSortedValues = get();
-		return JsopBuilder.encode(topKSortedValues.toString());
+//	@Override
+//	public String toString() {
+//		List<ValueCountPair> topKSortedValues = get();
+//		return topKSortedValues.toString();
+//		ObjectMapper mapper = new ObjectMapper();
+//		try {
+//			return mapper.writeValueAsString(topKSortedValues);
+//		} catch (JsonProcessingException e) {
+//			throw new RuntimeException(e);
+//		}
 	}
-}
+//		StringBuilder sb = new StringBuilder();
+//		for (TopKPropertyInfo tk : topKSortedValues) {
+//			sb.append("{");
+//			sb.append(JsopBuilder.encode(tk.toString()));
+//			sb.append("}");
+//		}
+//		return sb.toString();
+//		return JsopBuilder.encode(topKSortedValues.toString());
+//	}
+//		StringBuilder sb = new StringBuilder();
+//		sb.append("{");
+//		int n = topKSortedValues.size();
+//		int size = Math.min(n, k);
+//		for (int i = 0; i < size; i++) {
+//			if (i < size - 1) {
+//				sb.append(topKSortedValues.get(i).toString());
+//				sb.append(", ");
+//			} else {
+//				sb.append(topKSortedValues.get(i).toString());
+//			}
+//		}
+//		sb.append("}");
+//		return JsopBuilder.encode(sb.toString());
+
+//}

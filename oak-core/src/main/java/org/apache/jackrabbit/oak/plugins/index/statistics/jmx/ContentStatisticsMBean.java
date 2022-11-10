@@ -5,7 +5,7 @@ import java.util.Set;
 
 import org.apache.jackrabbit.oak.api.jmx.Description;
 import org.apache.jackrabbit.oak.api.jmx.Name;
-import org.apache.jackrabbit.oak.plugins.index.statistics.PropertyInfo;
+import org.apache.jackrabbit.oak.plugins.index.statistics.TopKElements;
 
 public interface ContentStatisticsMBean {
 	String TYPE = "ContentStatistics";
@@ -38,7 +38,7 @@ public interface ContentStatisticsMBean {
 	// given property name")
 	Set<String> getIndexedPropertyNamesForSingleIndex(String name);
 
-	List<PropertyInfo> getTopKIndexedPropertiesForSingleProperty(String name, int k);
+	List<TopKElements.ValueCountPair> getTopKIndexedPropertiesForSingleProperty(String name, int k);
 
 	List<DetailedPropertyInfo> getPropertyInfoForSingleProperty(String name);
 }

@@ -1,6 +1,7 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
 
 import java.util.*;
 import java.util.function.Function;
@@ -151,10 +152,10 @@ public class StatisticsEditor implements Editor {
 			// TODO: consider using HyperLogLog4TailCut64 so that we only store a long
 			// rather than array
 			statNode.setProperty(PROPERTY_HLL_NAME, hllSerialized);
-			List<TopKPropertyInfo> topKElements = propStats.getTopKValuesDescending();
+			List<TopKElements.ValueCountPair> topKElements = propStats.getTopKValuesDescending();
 			if (!topKElements.isEmpty()) {
-				List<String> valueNames = getByFieldName(topKElements, TopKPropertyInfo::getName);
-				List<Long> valueCounts = getByFieldName(topKElements, TopKPropertyInfo::getCount);
+				List<String> valueNames = getByFieldName(topKElements, TopKElements.ValueCountPair::getValue);
+				List<Long> valueCounts = getByFieldName(topKElements, TopKElements.ValueCountPair::getCount);
 				statNode.setProperty(PROPERTY_TOPK_NAME, valueNames, Type.STRINGS);
 				statNode.setProperty(PROPERTY_TOPK_COUNT, valueCounts, Type.LONGS);
 				statNode.setProperty(PROPERTY_TOP_K, (long) valueCounts.size(), Type.LONG);
@@ -164,8 +165,8 @@ public class StatisticsEditor implements Editor {
 		propertyStatistics.clear();
 	}
 
-	private <T> List<T> getByFieldName(List<TopKPropertyInfo> topKPropertyInfos, Function<TopKPropertyInfo, T> field) {
-		return topKPropertyInfos.stream().map(field).collect(Collectors.toList());
+	private <T> List<T> getByFieldName(List<TopKElements.ValueCountPair> valueCountPairs, Function<TopKElements.ValueCountPair, T> field) {
+		return valueCountPairs.stream().map(field).collect(Collectors.toList());
 	}
 
 	private static void setPrimaryType(NodeBuilder builder) {
@@ -257,7 +258,8 @@ public class StatisticsEditor implements Editor {
 
 		PropertyState topKValueNames = prop.getProperty(PROPERTY_TOPK_NAME);
 		PropertyState topKValueCounts = prop.getProperty(PROPERTY_TOPK_COUNT);
-		TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts);
+		PropertyState topKNum = prop.getProperty(PROPERTY_TOP_K);
+		TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, topKNum);
 		CountMinSketch valueSketch = PropertyStatistics.readCMS(prop.getNodeState(), VALUE_SKETCH, VALUE_SKETCH_ROWS,
 				VALUE_SKETCH_COLS, LOG);
 		return new PropertyStatistics(propertyName, c, new HyperLogLog(64, hllData), valueSketch, topKElements);
@@ -271,17 +273,17 @@ public class StatisticsEditor implements Editor {
 		return set;
 	}
 
-	private TopKElements readTopKElements(PropertyState valueNames, PropertyState valueCounts) {
+	private TopKElements readTopKElements(PropertyState valueNames, PropertyState valueCounts, PropertyState topK) {
 		if (valueNames != null && valueCounts != null) {
 			@NotNull
 			Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
 			@NotNull
 			Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
-
-			PriorityQueue<TopKElements.ValueCountPair> topElements = TopKElements.deserialize(valueNamesIter, valueCountsIter, K_ELEMENTS);
+			int k = Math.toIntExact(getLongOrZero(topK));
+			PriorityQueue<TopKElements.ValueCountPair> topElements = TopKElements.deserialize(valueNamesIter, valueCountsIter, k);
 			Set<String> currValues = toSet(valueNamesIter);
 
-			return new TopKElements(topElements, K_ELEMENTS, currValues);
+			return new TopKElements(topElements, k, currValues);
 		}
 
 		return new TopKElements(new PriorityQueue<>(), K_ELEMENTS, new HashSet<>());

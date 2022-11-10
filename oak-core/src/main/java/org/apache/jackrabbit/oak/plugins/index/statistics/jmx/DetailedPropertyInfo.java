@@ -4,18 +4,19 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import org.apache.jackrabbit.oak.plugins.index.statistics.PropertyInfo;
+import org.apache.jackrabbit.oak.plugins.index.statistics.TopKElements;
+import org.apache.jackrabbit.oak.plugins.index.statistics.TopKElements.ValueCountPair;
 
 public class DetailedPropertyInfo {
 
-	private List<PropertyInfo> sortedTopK;
-	private List<PropertyInfo> allProperties;
+	private List<TopKElements.ValueCountPair> sortedTopK;
+	private List<TopKElements.ValueCountPair> allProperties;
 	private String name;
 	private long count;
 	private long totalCount;
 	private double percentage;
 
-	DetailedPropertyInfo(List<PropertyInfo> stk, List<PropertyInfo> allProps) {
+	DetailedPropertyInfo(List<TopKElements.ValueCountPair> stk, List<TopKElements.ValueCountPair> allProps) {
 		this.sortedTopK = stk;
 		this.allProperties = allProps;
 	}
@@ -28,12 +29,12 @@ public class DetailedPropertyInfo {
 
 	}
 
-	PropertyInfo max() {
-		return Collections.max(allProperties, Comparator.comparing(PropertyInfo::getCount));
+	TopKElements.ValueCountPair max() {
+		return Collections.max(allProperties, Comparator.comparing(TopKElements.ValueCountPair::getCount));
 	}
 
-	PropertyInfo min() {
-		return Collections.min(allProperties, Comparator.comparing(PropertyInfo::getCount));
+	TopKElements.ValueCountPair min() {
+		return Collections.min(allProperties, Comparator.comparing(TopKElements.ValueCountPair::getCount));
 	}
 
 	double percentage() {
