@@ -3,7 +3,6 @@ package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.jackrabbit.oak.plugins.index.statistics.TopKElements;
-import org.apache.jackrabbit.oak.plugins.index.statistics.TopKElements.ValueCountPair;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,9 +16,9 @@ public class EstimationResult {
     private final long valueLengthTotal;
     private final long valueLengthMax;
     private final long valueLengthMin;
-    private final TopKElements topValues;
+    private final TopKElements topKValues;
 
-    public EstimationResult(String propertyName, long count, long cmsCount, long hllCount, long valueLengthTotal, long valueLengthMax, long valueLengthMin, TopKElements topValues) {
+    public EstimationResult(String propertyName, long count, long cmsCount, long hllCount, long valueLengthTotal, long valueLengthMax, long valueLengthMin, TopKElements topKValues) {
         this.propertyName = propertyName;
         this.count = count;
         this.cmsCount = cmsCount;
@@ -27,7 +26,7 @@ public class EstimationResult {
         this.valueLengthTotal = valueLengthTotal;
         this.valueLengthMax = valueLengthMax;
         this.valueLengthMin = valueLengthMin;
-        this.topValues = topValues;
+        this.topKValues = topKValues;
     }
 
     public long getCount() {
@@ -46,8 +45,8 @@ public class EstimationResult {
         return propertyName;
     }
 
-    public String getTopValues() {
-        return topValues.get().toString();
+    public String getTopKValues() {
+        return topKValues.get().toString();
     }
 
     public long getValueLengthTotal() {

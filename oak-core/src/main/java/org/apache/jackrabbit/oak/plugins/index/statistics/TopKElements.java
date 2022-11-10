@@ -2,6 +2,7 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -59,11 +60,7 @@ public class TopKElements {
 
 		@Override
 		public String toString() {
-			try {
-				return new ObjectMapper().writeValueAsString(this);
-			} catch (JsonProcessingException e) {
-				throw new RuntimeException(e);
-			}
+			return "{" + value + " : " + count + "}";
 		}
 	}
 
