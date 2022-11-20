@@ -205,12 +205,21 @@ public class StatisticsEditor implements Editor {
 	}
 
 	private void updatePropertyStatistics(String propertyName, Object val) {
-		PropertyStatistics ps = propertyStatistics.get(propertyName);
-		if (ps == null) {
+		Optional<PropertyStatistics> ps = Optional.ofNullable(
+				propertyStatistics.get(propertyName));
+
+		if (!ps.isPresent()) {
 			ps = readPropertyStatistics(propertyName);
-			if (ps == null) {
-				ps = new PropertyStatistics(propertyName, 0, new HyperLogLog(64), new CountMinSketch(valueCMSRows, valueCMSCols),
-						new TopKValues(new PriorityQueue<>(), K_ELEMENTS, new HashSet<>()));
+			if (!ps.isPresent()) {
+				ps = Optional.of(new PropertyStatistics(propertyName, 0,
+														new HyperLogLog(64),
+														new CountMinSketch(
+																valueCMSRows,
+																valueCMSCols),
+														new TopKValues(
+																new PriorityQueue<>(),
+																K_ELEMENTS,
+																new HashSet<>())));
 			}
 		}
 
@@ -218,21 +227,22 @@ public class StatisticsEditor implements Editor {
 		if (value.length() > 128) {
 			value = value.substring(0, 128) + " ... [" + value.hashCode() + "]";
 		}
+
 		long hash64 = Hash.hash64((value.hashCode()));
-		ps.updateHll(hash64);
-		propertyStatistics.put(propertyName, ps);
-		ps.updateValueCounts(value, hash64);
-		ps.inc(1);
+		ps.get().updateHll(hash64);
+		propertyStatistics.put(propertyName, ps.get());
+		ps.get().updateValueCounts(value, hash64);
+		ps.get().inc(1);
 	}
 
-	private PropertyStatistics readPropertyStatistics(String propertyName) {
+	private Optional<PropertyStatistics> readPropertyStatistics(String propertyName) {
 		if (!root.definition.hasChildNode(DATA_NODE_NAME)) {
-			return null;
+			return Optional.empty();
 		}
 
 		NodeBuilder data = root.definition.getChildNode(DATA_NODE_NAME);
 		if (!data.hasChildNode("properties")) {
-			return null;
+			return Optional.empty();
 		}
 
 		Iterable<String> childNodes = data.getChildNodeNames();
@@ -242,13 +252,13 @@ public class StatisticsEditor implements Editor {
 
 		NodeBuilder properties = data.getChildNode("properties");
 		if (!properties.hasChildNode(propertyName)) {
-			return null;
+			return Optional.empty();
 		}
 
 		NodeBuilder prop = properties.getChildNode(propertyName);
 		PropertyState count = prop.getProperty("count");
 		if (count == null) {
-			return null;
+			return Optional.empty();
 		}
 
 		long c = count.getValue(Type.LONG);
@@ -262,8 +272,10 @@ public class StatisticsEditor implements Editor {
 		TopKValues topKValues = readTopKElements(topKValueNames, topKValueCounts, topKNum);
 		CountMinSketch valueSketch = PropertyStatistics.readCMS(prop.getNodeState(), VALUE_SKETCH, VALUE_SKETCH_ROWS,
 				VALUE_SKETCH_COLS, LOG);
-		return new PropertyStatistics(propertyName, c, new HyperLogLog(64, hllData), valueSketch,
-									  topKValues);
+		return Optional.of(new PropertyStatistics(propertyName, c,
+												  new HyperLogLog(64, hllData),
+												  valueSketch,
+												  topKValues));
 	}
 
 	public Set<String> toSet(Iterable<String> valueNames) {
