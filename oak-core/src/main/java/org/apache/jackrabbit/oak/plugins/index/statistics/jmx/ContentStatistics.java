@@ -24,16 +24,19 @@ import org.slf4j.LoggerFactory;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getStringOrEmpty;
 
-public class ContentStatistics extends AnnotatedStandardMBean implements ContentStatisticsMBean {
+public class ContentStatistics extends AnnotatedStandardMBean
+        implements ContentStatisticsMBean {
 
-    private NodeStore store;
+    private final NodeStore store;
 
-    public static final Logger CS_LOG = LoggerFactory.getLogger(ContentStatistics.class);
+    public static final Logger CS_LOG = LoggerFactory.getLogger(
+            ContentStatistics.class);
     public static final String STATISTICS_INDEX_NAME = "statistics";
     private static final String INDEX_RULES = "indexRules";
     private static final String PROPERTY_NAME = "name";
     private static final String VIRTUAL_PROPERTY_NAME = ":nodeName";
     private static final String PROPERTIES = "properties";
+    private static final String EXACT_COUNT = "count";
     private static final String PROPERTY_TOP_K_NAME = "mostFrequentValueNames";
     private static final String PROPERTY_TOP_K_COUNT = "mostFrequentValueCounts";
 
@@ -43,89 +46,78 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     }
 
     @Override
-    public EstimationResult getSinglePropertyEstimation(String name) {
-        NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
-        if (statisticsDataNode == null) {
-            return null;
+    public Optional<EstimationResult> getSinglePropertyEstimation(String name) {
+        Optional<NodeState> statisticsDataNode = getStatisticsIndexDataNodeOrNull();
+        if (!statisticsDataNode.isPresent()) {
+            return Optional.empty();
         }
 
-        NodeState property = statisticsDataNode.getChildNode(PROPERTIES).getChildNode(name);
-        long count = getLongOrZero(property.getProperty("count"));
-        long valueLengthTotal = getLongOrZero(property.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
-        long valueLengthMax = getLongOrZero(property.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
-        long valueLengthMin = getLongOrZero(property.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
+        NodeState property = statisticsDataNode.get().getChildNode(PROPERTIES)
+                                               .getChildNode(name);
+        long count = getLongOrZero(property.getProperty(EXACT_COUNT));
+        long valueLengthTotal = getLongOrZero(
+                property.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
+        long valueLengthMax = getLongOrZero(
+                property.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
+        long valueLengthMin = getLongOrZero(
+                property.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
 
-        CountMinSketch cms = PropertyStatistics.readCMS(statisticsDataNode, StatisticsEditor.PROPERTY_CMS_NAME, StatisticsEditor.PROPERTY_CMS_ROWS_NAME, StatisticsEditor.PROPERTY_CMS_COLS_NAME, CS_LOG);
-        long hash64 = Hash.hash64(name.hashCode());
 
-        String storedHll = getStringOrEmpty(property.getProperty("uniqueHLL"));
+        String storedHll = getStringOrEmpty(
+                property.getProperty(StatisticsEditor.PROPERTY_HLL_NAME));
         byte[] hllCounts = HyperLogLog.deserialize(storedHll);
         HyperLogLog hll = new HyperLogLog(64, hllCounts);
-        PropertyState topKValueNames = property.getProperty(StatisticsEditor.PROPERTY_TOPK_NAME);
-        PropertyState topKValueCounts = property.getProperty(StatisticsEditor.PROPERTY_TOPK_COUNT);
-        long topK = getLongOrZero(property.getProperty(StatisticsEditor.PROPERTY_TOP_K));
-        TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, (int) topK);
 
-        return new EstimationResult(name, count, cms.estimateCount(hash64), hll.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin, topKElements);
+        PropertyState topKValueNames = property.getProperty(
+                StatisticsEditor.PROPERTY_TOPK_NAME);
+        PropertyState topKValueCounts = property.getProperty(
+                StatisticsEditor.PROPERTY_TOPK_COUNT);
+        long topK = getLongOrZero(
+                property.getProperty(StatisticsEditor.PROPERTY_TOP_K));
+        TopKElements topKElements = readTopKElements(topKValueNames,
+                                                     topKValueCounts,
+                                                     (int) topK);
+
+        CountMinSketch cms = PropertyStatistics.readCMS(statisticsDataNode.get(),
+                                                        StatisticsEditor.PROPERTY_CMS_NAME,
+                                                        StatisticsEditor.PROPERTY_CMS_ROWS_NAME,
+                                                        StatisticsEditor.PROPERTY_CMS_COLS_NAME,
+                                                        CS_LOG);
+        long hash64 = Hash.hash64(name.hashCode());
+
+        return Optional.of(
+                new EstimationResult(name, count, cms.estimateCount(hash64),
+                                     hll.estimate(), valueLengthTotal,
+                                     valueLengthMax, valueLengthMin,
+                                     topKElements));
     }
 
-    private NodeState getStatisticsIndexDataNodeOrNull() {
+    private Optional<NodeState> getStatisticsIndexDataNodeOrNull() {
         NodeState indexNode = getIndexNode();
 
         if (!indexNode.exists()) {
-            return null;
+            return Optional.empty();
         }
-        NodeState statisticsIndexNode = indexNode.getChildNode(STATISTICS_INDEX_NAME);
+        NodeState statisticsIndexNode = indexNode.getChildNode(
+                STATISTICS_INDEX_NAME);
         if (!statisticsIndexNode.exists()) {
-            return null;
+            return Optional.empty();
         }
         if (!"statistics".equals(statisticsIndexNode.getString("type"))) {
-            return null;
+            return Optional.empty();
         }
-        NodeState statisticsDataNode = statisticsIndexNode.getChildNode(StatisticsEditor.DATA_NODE_NAME);
+        NodeState statisticsDataNode = statisticsIndexNode.getChildNode(
+                StatisticsEditor.DATA_NODE_NAME);
         if (!statisticsDataNode.exists()) {
-            return null;
+            return Optional.empty();
         }
-        return statisticsDataNode;
+        return Optional.of(statisticsDataNode);
     }
 
     @Override
-    public long getEstimatedPropertyCount(String name) {
-        NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
-        if (statisticsDataNode == null) {
-            return -1;
-        }
-
-        @NotNull
-        Iterable<? extends PropertyState> properties = statisticsDataNode.getProperties();
-        int rows = getNumRows(properties);
-        int cols = getNumCols(properties);
-
-        long[][] cmsItems = new long[rows][cols];
-        int i = 0;
-        for (PropertyState ps : properties) {
-            String storedProperty = ps.getValue(Type.STRING);
-            long[] cmsRow = CountMinSketch.deserialize(storedProperty);
-            cmsItems[i++] = cmsRow;
-        }
-
-        long hash = Hash.hash64(name.hashCode());
-
-        return CountMinSketch.estimateCount(hash, cmsItems, cols, rows);
-
-    }
-
-    @Override
-    public List<EstimationResult> getAllPropertiesEstimation() {
-        NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
-        if (statisticsDataNode == null) {
-            return null;
-        }
-
-//        NodeState properties = statisticsDataNode.getChildNode(PROPERTIES);
-
-        return getEstimationResults(statisticsDataNode);
-
+    public Optional<List<EstimationResult>> getAllPropertiesEstimation() {
+        Optional<NodeState> statisticsDataNode = getStatisticsIndexDataNodeOrNull();
+        return statisticsDataNode.map(this::getEstimationResults);
     }
 
     @Override
@@ -136,129 +128,177 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
             NodeState child = entry.getNodeState();
             // TODO: this will take 2 * n iterations. Should we pass the set in as a
             // reference and update it directly to reduce it to n iterations?
-            indexedPropertyNames.addAll(getIndexedProperties(child));
+            indexedPropertyNames.addAll(getPropertyNamesForIndexNode(child));
         }
 
         return indexedPropertyNames;
     }
 
     @Override
-    public Set<String> getIndexedPropertyNamesForSingleIndex(String name) {
+    public Set<String> getPropertyNamesForSingleIndex(String name) {
         NodeState indexNode = getIndexNode();
         NodeState child = indexNode.getChildNode(name);
 
-        return getIndexedProperties(child);
+        return getPropertyNamesForIndexNode(child);
     }
 
     @Override
-    public List<TopKElements.ValueCountPair> getTopKIndexedPropertiesForSingleProperty(String name, int k) {
-        NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
-        assert statisticsDataNode != null;
-        NodeState properties = statisticsDataNode.getChildNode(PROPERTIES);
+    public Optional<List<TopKElements.ValueCountPair>> getTopKValuesForProperty(
+            String name, int k) {
+        Optional<NodeState> statisticsDataNode = getStatisticsIndexDataNodeOrNull();
+        if (!statisticsDataNode.isPresent()) {
+            return Optional.empty();
+        }
+        NodeState properties = statisticsDataNode.get().getChildNode(PROPERTIES);
         if (!properties.hasChildNode(name)) {
-            return null;
+            return Optional.empty();
         }
 
         NodeState propertyNode = properties.getChildNode(name);
 
-        PropertyState topKValueNames = propertyNode.getProperty(PROPERTY_TOP_K_NAME);
-        PropertyState topKValueCounts = propertyNode.getProperty(PROPERTY_TOP_K_COUNT);
-        TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, k);
+        PropertyState topKValueNames = propertyNode.getProperty(
+                PROPERTY_TOP_K_NAME);
+        PropertyState topKValueCounts = propertyNode.getProperty(
+                PROPERTY_TOP_K_COUNT);
+        TopKElements topKElements = readTopKElements(topKValueNames,
+                                                     topKValueCounts, k);
 
-        return topKElements.get();
+        return Optional.ofNullable(topKElements.get());
     }
 
     @Override
-    public List<DetailedPropertyInfo> getPropertyInfoForSingleProperty(String name) {
-        NodeState statisticsDataNode = getStatisticsIndexDataNodeOrNull();
-        NodeState statisticsProperties = statisticsDataNode.getChildNode(PROPERTIES);
+    public Optional<List<TopKElements.Fraction>> getPropertyInfoForSingleProperty(
+            String name) {
+        Optional<NodeState> statisticsDataNode = getStatisticsIndexDataNodeOrNull();
+        if (!statisticsDataNode.isPresent()) {
+            return Optional.empty();
+        }
+        NodeState statisticsProperties = statisticsDataNode.get().getChildNode(
+                PROPERTIES);
+
         if (!statisticsProperties.hasChildNode(name)) {
-            return null;
+            return Optional.empty();
         }
 
-        CountMinSketch nameSketch = PropertyStatistics.readCMS(statisticsDataNode, StatisticsEditor.PROPERTY_CMS_NAME,
-                                                               StatisticsEditor.PROPERTY_CMS_ROWS_NAME, StatisticsEditor.PROPERTY_CMS_COLS_NAME, CS_LOG);
+        CountMinSketch nameSketch = PropertyStatistics.readCMS(
+                statisticsDataNode.get(), StatisticsEditor.PROPERTY_CMS_NAME,
+                StatisticsEditor.PROPERTY_CMS_ROWS_NAME,
+                StatisticsEditor.PROPERTY_CMS_COLS_NAME, CS_LOG);
 
-        long totalCount = nameSketch.estimateCount(Hash.hash64(name.hashCode()));
+        long totalCount = nameSketch.estimateCount(
+                Hash.hash64(name.hashCode()));
 
         NodeState propertyNode = statisticsProperties.getChildNode(name);
 
-        PropertyState topKValueNames = propertyNode.getProperty(PROPERTY_TOP_K_NAME);
-        PropertyState topKValueCounts = propertyNode.getProperty(PROPERTY_TOP_K_COUNT);
-        PropertyState kProp = propertyNode.getProperty(StatisticsEditor.PROPERTY_TOP_K);
-        int k = Math.toIntExact(kProp.getValue(Type.LONG));
+        PropertyState topKValueNames = propertyNode.getProperty(
+                PROPERTY_TOP_K_NAME);
+        PropertyState topKValueCounts = propertyNode.getProperty(
+                PROPERTY_TOP_K_COUNT);
+        int k = Math.toIntExact(getLongOrZero(propertyNode.getProperty(
+                StatisticsEditor.PROPERTY_TOP_K)));
 
-        TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, k);
+        TopKElements topKElements = readTopKElements(topKValueNames,
+                                                     topKValueCounts, k);
 
         List<TopKElements.ValueCountPair> topK = topKElements.get();
-        List<DetailedPropertyInfo> dpis = new ArrayList<>();
+        List<TopKElements.Fraction> fractions = new ArrayList<>();
         for (TopKElements.ValueCountPair pi : topK) {
-            DetailedPropertyInfo dpi = new DetailedPropertyInfo(pi.getValue(), pi.getCount(), totalCount);
-            dpis.add(dpi);
+            TopKElements.Fraction dpi = new TopKElements.Fraction(pi.getValue(),
+                                                                  pi.getCount(),
+                                                                  totalCount);
+            fractions.add(dpi);
         }
 
-        long topKTotalCount = dpis.stream().mapToLong(DetailedPropertyInfo::getCount).sum();
-        DetailedPropertyInfo totalInfo = new DetailedPropertyInfo("TopKCount", topKTotalCount, totalCount);
-        dpis.add(totalInfo);
+        long topKTotalCount = fractions.stream()
+                                       .mapToLong(
+                                               TopKElements.Fraction::getCount)
+                                       .sum();
+        TopKElements.Fraction totalInfo = new TopKElements.Fraction("TopKCount",
+                                                                    topKTotalCount,
+                                                                    totalCount);
+        fractions.add(totalInfo);
 
-        return dpis;
+        return Optional.of(fractions);
     }
 
-    private EstimationResult getSingleEstimationResult(String name, NodeState indexNode) {
+    private EstimationResult getSingleEstimationResult(String name,
+                                                       NodeState indexNode) {
         NodeState properties = indexNode.getChildNode(PROPERTIES);
         NodeState propertyNode = properties.getChildNode(name);
 
-        long count = propertyNode.getProperty("count").getValue(Type.LONG);
-        String uniqueHll = propertyNode.getProperty("uniqueHLL").getValue(Type.STRING);
+        long count = getLongOrZero(propertyNode.getProperty(EXACT_COUNT));
+        String uniqueHll = getStringOrEmpty(
+                propertyNode.getProperty(StatisticsEditor.PROPERTY_HLL_NAME));
 
-        long valueLengthTotal = getLongOrZero(propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
-        long valueLengthMax = getLongOrZero(propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
-        long valueLengthMin = getLongOrZero(propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
+        long valueLengthTotal = getLongOrZero(
+                propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
+        long valueLengthMax = getLongOrZero(
+                propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
+        long valueLengthMin = getLongOrZero(
+                propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
 
-        // TODO: read the first parameter from the node itself as well rather than
-        // hard-coding 64
-        CountMinSketch cms = PropertyStatistics.readCMS(indexNode, StatisticsEditor.PROPERTY_CMS_NAME, StatisticsEditor.PROPERTY_CMS_ROWS_NAME, StatisticsEditor.PROPERTY_CMS_COLS_NAME, CS_LOG);
+        CountMinSketch cms = PropertyStatistics.readCMS(indexNode,
+                                                        StatisticsEditor.PROPERTY_CMS_NAME,
+                                                        StatisticsEditor.PROPERTY_CMS_ROWS_NAME,
+                                                        StatisticsEditor.PROPERTY_CMS_COLS_NAME,
+                                                        CS_LOG);
+
+        byte[] hllData = HyperLogLog.deserialize(uniqueHll);
+        HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
+
+        PropertyState topKValueNames = propertyNode.getProperty(
+                StatisticsEditor.PROPERTY_TOPK_NAME);
+        PropertyState topKValueCounts = propertyNode.getProperty(
+                StatisticsEditor.PROPERTY_TOPK_COUNT);
+        PropertyState topK = propertyNode.getProperty(
+                StatisticsEditor.PROPERTY_TOP_K);
+        TopKElements topKElements = readTopKElements(topKValueNames,
+                                                     topKValueCounts, topK);
+
         long hash64 = Hash.hash64(name.hashCode());
 
-        byte[] hll = HyperLogLog.deserialize(uniqueHll);
-        HyperLogLog hllObj = new HyperLogLog(64, hll);
-        PropertyState topKValueNames = propertyNode.getProperty(StatisticsEditor.PROPERTY_TOPK_NAME);
-        PropertyState topKValueCounts = propertyNode.getProperty(StatisticsEditor.PROPERTY_TOPK_COUNT);
-        PropertyState topK = propertyNode.getProperty(StatisticsEditor.PROPERTY_TOP_K);
-        TopKElements topKElements = readTopKElements(topKValueNames, topKValueCounts, topK);
-
-        return new EstimationResult(name, count, cms.estimateCount(hash64), hllObj.estimate(), valueLengthTotal, valueLengthMax, valueLengthMin, topKElements);
+        return new EstimationResult(name, count, cms.estimateCount(hash64),
+                                    hll.estimate(), valueLengthTotal,
+                                    valueLengthMax, valueLengthMin,
+                                    topKElements);
     }
 
-    private List<EstimationResult> getEstimationResults(NodeState indexNode) {
+    private List<EstimationResult> getEstimationResults(
+            NodeState indexNode) {
         List<EstimationResult> propertyCounts = new ArrayList<>();
 
-        for (ChildNodeEntry child : indexNode.getChildNode(PROPERTIES).getChildNodeEntries()) {
-            propertyCounts.add(getSingleEstimationResult(child.getName(), indexNode));
+        for (ChildNodeEntry child : indexNode.getChildNode(PROPERTIES)
+                                             .getChildNodeEntries()) {
+            propertyCounts.add(
+                    getSingleEstimationResult(child.getName(), indexNode));
         }
-        return propertyCounts.stream().sorted(Comparator.comparing(EstimationResult::getCount).reversed().thenComparingLong(EstimationResult::getHllCount)).collect(Collectors.toList());
 
-//        return propertyCounts.stream().sorted(Comparator.comparing(EstimationResult::getCount).reversed()).filter(x -> x.getHllCount() < 5).collect(Collectors.toList());
+        return propertyCounts.stream()
+                             .sorted(Comparator.comparing(
+                                                       EstimationResult::getCount)
+                                               .reversed()
+                                               .thenComparingLong(
+                                                       EstimationResult::getHllCount))
+                             .collect(Collectors.toList());
     }
 
-    // TODO: create method for getting the estimation of the value themselves.
-    // jcr:primaryType for instance.
-    // if it's part of the top K, return
-    // otherwie use cms to estimate.
-
-    private TopKElements readTopKElements(PropertyState valueNames, PropertyState valueCounts, PropertyState topK) {
+    private TopKElements readTopKElements(PropertyState valueNames,
+                                          PropertyState valueCounts,
+                                          PropertyState topK) {
         if (valueNames != null && valueCounts != null) {
             @NotNull
             Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
             @NotNull
             Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
             int k = Math.toIntExact(topK.getValue(Type.LONG));
-            PriorityQueue<TopKElements.ValueCountPair> topValues = TopKElements.deserialize(valueNamesIter, valueCountsIter, k);
+            PriorityQueue<TopKElements.ValueCountPair> topValues = TopKElements.deserialize(
+                    valueNamesIter, valueCountsIter, k);
             Set<String> currValues = toSet(valueNamesIter);
             return new TopKElements(topValues, k, currValues);
         }
 
-        return new TopKElements(new PriorityQueue<>(), StatisticsEditor.K_ELEMENTS, new HashSet<>());
+        return new TopKElements(new PriorityQueue<>(),
+                                StatisticsEditor.K_ELEMENTS, new HashSet<>());
     }
 
     private Set<String> toSet(Iterable<String> valueNamesIter) {
@@ -269,13 +309,15 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         return currValues;
     }
 
-    private TopKElements readTopKElements(PropertyState valueNames, PropertyState valueCounts, int k) {
+    private TopKElements readTopKElements(PropertyState valueNames,
+                                          PropertyState valueCounts, int k) {
         if (valueNames != null && valueCounts != null) {
             @NotNull
             Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
             @NotNull
             Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
-            PriorityQueue<TopKElements.ValueCountPair> topValues = TopKElements.deserialize(valueNamesIter, valueCountsIter, k);
+            PriorityQueue<TopKElements.ValueCountPair> topValues = TopKElements.deserialize(
+                    valueNamesIter, valueCountsIter, k);
             Set<String> currValues = toSet(valueNamesIter);
             return new TopKElements(topValues, k, currValues);
         }
@@ -283,20 +325,36 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         return new TopKElements(new PriorityQueue<>(), k, new HashSet<>());
     }
 
-    public Set<String> getIndexedProperties(NodeState nodeState) throws IllegalArgumentException {
+    /**
+     * To find the property names of an index, we traverse the index node's
+     * children until we find nodes that are "valid". A node is considered a
+     * valid property, if it fulfills certain criteria. Like that it needs to
+     * have a "name" property that does not start with "function" and more. See
+     * {@link #hasValidPropertyNameNode(NodeState)} and
+     * {@link #isValidPropertyName(String)}
+     *
+     * @param nodeState - the node state of the provided index node
+     * @return the properties of the provided index node.
+     */
+    public Set<String> getPropertyNamesForIndexNode(NodeState nodeState) {
         Set<String> propStates = new TreeSet<>();
         if (nodeState.hasChildNode(INDEX_RULES)) {
-            NodeState propertyNode = getPropertiesNode(nodeState.getChildNode(INDEX_RULES));
-            if (propertyNode.exists()) {
-                for (ChildNodeEntry ce : propertyNode.getChildNodeEntries()) {
+            NodeState propertiesChildOfIndexNode = getPropertiesNode(
+                    nodeState.getChildNode(INDEX_RULES));
+            if (propertiesChildOfIndexNode.exists()) {
+                for (ChildNodeEntry ce : propertiesChildOfIndexNode.getChildNodeEntries()) {
                     NodeState childNode = ce.getNodeState();
                     if (hasValidPropertyNameNode(childNode)) {
                         String propertyName;
-                        // we assume that this node either has a property named: "name" or "properties"
+                        // we assume that this (property) node either has a property named: "name" or "properties"
                         if (childNode.hasProperty(PROPERTY_NAME)) {
-                            propertyName = parse(childNode.getProperty(PROPERTY_NAME).getValue(Type.STRING));
+                            propertyName = parse(
+                                    getStringOrEmpty(childNode.getProperty(
+                                            PROPERTY_NAME)));
                         } else {
-                            propertyName = parse(childNode.getProperty("properties").getValue(Type.STRING));
+                            propertyName = parse(
+                                    getStringOrEmpty(
+                                            childNode.getProperty(PROPERTIES)));
                         }
                         if (isValidPropertyName(propertyName)) {
                             propStates.add(propertyName);
@@ -309,11 +367,14 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     }
 
     private boolean isValidPropertyName(String propertyName) {
-        return !propertyName.startsWith("function") && !propertyName.equals("jcr:path") && !propertyName.equals("rep:facet");
+        return !propertyName.startsWith("function") &&
+                !propertyName.equals("jcr:path") &&
+                !propertyName.equals("rep:facet");
     }
 
     private NodeState getIndexNode() {
-        return store.getRoot().getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
+        return store.getRoot()
+                    .getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
     }
 
     private boolean isRegExp(NodeState nodeState) {
@@ -322,15 +383,18 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     }
 
     private boolean hasValidPropertyNameNode(NodeState nodeState) {
-        return nodeState.exists() && (nodeState.hasProperty(PROPERTY_NAME) || nodeState.hasProperty("properties"))
+        return nodeState.exists() && (nodeState.hasProperty(PROPERTY_NAME) ||
+                nodeState.hasProperty("properties"))
                 && !isRegExp(nodeState) && !hasVirtualProperty(nodeState);
     }
 
     private boolean hasVirtualProperty(NodeState nodeState) {
         return nodeState.hasProperty(PROPERTY_NAME)
-                && nodeState.getProperty(PROPERTY_NAME).getValue(Type.STRING).equals(VIRTUAL_PROPERTY_NAME)
+                && nodeState.getProperty(PROPERTY_NAME).getValue(Type.STRING)
+                            .equals(VIRTUAL_PROPERTY_NAME)
                 || nodeState.hasProperty("properties")
-                        && nodeState.getProperty("properties").getValue(Type.STRING).equals(VIRTUAL_PROPERTY_NAME);
+                && nodeState.getProperty("properties").getValue(Type.STRING)
+                            .equals(VIRTUAL_PROPERTY_NAME);
     }
 
     // start with indexRules node
@@ -360,8 +424,10 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
     private int getNumCols(Iterable<? extends PropertyState> properties) {
         return properties.iterator().hasNext()
-                ? CountMinSketch.deserialize(properties.iterator().next().getValue(Type.STRING)).length
-                : 0;
+               ? CountMinSketch.deserialize(properties.iterator().next()
+                                                      .getValue(
+                                                              Type.STRING)).length
+               : 0;
     }
 
     private int getNumRows(Iterable<? extends PropertyState> properties) {
