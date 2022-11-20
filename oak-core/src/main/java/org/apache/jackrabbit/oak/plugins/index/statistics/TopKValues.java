@@ -1,9 +1,5 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
-
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.PriorityQueue;
@@ -12,11 +8,35 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Comparator;
 
-public class TopKElements {
+public class TopKValues {
 	private final int k;
 	private final PriorityQueue<ValueCountPair> topValues;
 	private final Set<String> currValues;
 
+	public static class ProportionOfTotalCount {
+		private final String name;
+		private final long valueCount;
+		private final long totalValueCount;
+
+		public ProportionOfTotalCount(String name, long valueCount, long totalValueCount) {
+			this.name = name;
+			this.valueCount = valueCount;
+			this.totalValueCount = totalValueCount;
+		}
+
+		double percentage() {
+			return Math.round(((double) valueCount / totalValueCount) * 100);
+		}
+
+		public long getCount() {
+			return valueCount;
+		}
+
+		@Override
+		public String toString() {
+			return "{" + name + " | " + valueCount + "/" + totalValueCount + " | " + percentage() + "%" + "}";
+		}
+	}
 	public static class ValueCountPair implements Comparable<ValueCountPair> {
 		String value;
 		long count;
@@ -64,7 +84,7 @@ public class TopKElements {
 		}
 	}
 
-	public TopKElements(PriorityQueue<ValueCountPair> topValues, int k, Set<String> currValues) {
+	public TopKValues(PriorityQueue<ValueCountPair> topValues, int k, Set<String> currValues) {
 		this.topValues = topValues;
 		this.k = k;
 		this.currValues = currValues;

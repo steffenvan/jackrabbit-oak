@@ -6,7 +6,7 @@ import java.util.Set;
 
 import org.apache.jackrabbit.oak.api.jmx.Description;
 import org.apache.jackrabbit.oak.api.jmx.Name;
-import org.apache.jackrabbit.oak.plugins.index.statistics.TopKElements;
+import org.apache.jackrabbit.oak.plugins.index.statistics.TopKValues;
 
 public interface ContentStatisticsMBean {
     String TYPE = "ContentStatistics";
@@ -62,7 +62,7 @@ public interface ContentStatisticsMBean {
 
     /**
      * Returns the top k values for a specific property. Note that the length of
-     * the output will be: min(k, TopKElements.k). That means if the provided k
+     * the output will be: min(k, TopKValues.k). That means if the provided k
      * is larger than what is indexed (e.g. we have indexed top 5, but the
      * client passes in 10), it will only print out the top 5 values. And the
      * same for the other way around.
@@ -74,7 +74,7 @@ public interface ContentStatisticsMBean {
      */
     @Description(
             "Returns the top K values for the specified property, where k = min(k, 5) (as k = 5 is the repository's default value).")
-    Optional<List<TopKElements.ValueCountPair>> getTopKValuesForProperty(
+    Optional<List<TopKValues.ValueCountPair>> getTopKValuesForProperty(
             String propertyName, int k);
 
 
@@ -88,5 +88,5 @@ public interface ContentStatisticsMBean {
      */
     @Description(
             "Returns the percentage each of the top K values make out of all the values of the specified property and what percentage all the top K values make out of the property.")
-    Optional<List<TopKElements.Fraction>> getPropertyInfoForSingleProperty(String name);
+    Optional<List<TopKValues.ProportionOfTotalCount>> getPropertyInfoForSingleProperty(String name);
 }

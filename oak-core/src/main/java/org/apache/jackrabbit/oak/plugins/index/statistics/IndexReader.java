@@ -6,13 +6,13 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InvalidObjectException;
 import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.PriorityQueue;
 import java.util.Iterator;
+import java.util.Comparator;
 
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.EstimationResult;
@@ -24,7 +24,7 @@ class IndexReader {
         this.estimationResults = results;
     }
 
-    private TopKElements getTopKElements(JsonNode node) {
+    private TopKValues getTopKElements(JsonNode node) {
         JsonNode topValueNamesNode = node.path("mostFrequentValueNames");
         JsonNode topValueCountsNode = node.path("mostFrequentValueCounts");
         int k = topValueNamesNode.size();
@@ -44,11 +44,11 @@ class IndexReader {
         valuesArrayNode.elements().forEachRemaining(entry -> values.add(entry.toString()));
         countsArrayNode.elements().forEachRemaining(entry -> counts.add(entry.asLong()));
 
-        PriorityQueue<TopKElements.ValueCountPair> pqElements = TopKElements.deserialize(values, counts, k);
-        return new TopKElements(pqElements, k, new HashSet<>());
+        PriorityQueue<TopKValues.ValueCountPair> pqElements = TopKValues.deserialize(values, counts, k);
+        return new TopKValues(pqElements, k, new HashSet<>());
     }
 
-    private CountMinSketch getCms(JsonNode node) {
+    private CountMinSketch  getCms(JsonNode node) {
         int rows = node.path("valueSketchRows").asInt();
         int cols = node.path("valueSketchCols").asInt();
         long[][] data = new long[rows][cols];
@@ -62,15 +62,15 @@ class IndexReader {
     private EstimationResult readProperty(String value, JsonNode node) {
         byte[] hll = HyperLogLog.deserialize(node.path("uniqueHLL").asText());
         long count = node.path("count").asLong();
-        long valueTotalLength = node.path("valueTotalLength").asLong();
-        long valueMaxLength = node.path("valueMaxLength").asLong();
-        long valueMinLength = node.path("valueMinLength").asLong();
-        PropertyStatistics ps = new PropertyStatistics(value, count, new HyperLogLog(hll.length, hll), getCms(node), getTopKElements(node), valueTotalLength, valueMaxLength, valueMinLength);
+        long valueLengthTotal = node.path("valueLengthTotal").asLong();
+        long valueLengthMax = node.path("valueLengthMax").asLong();
+        long valueLengthMin = node.path("valueLengthMin").asLong();
+        PropertyStatistics ps = new PropertyStatistics(value, count, new HyperLogLog(hll.length, hll), getCms(node), getTopKElements(node), valueLengthTotal, valueLengthMax, valueLengthMin);
 
-        return new EstimationResult(value, ps.getCount(), ps.getHll().estimate(), ps.getValueLengthTotal(), ps.getValueLengthMax(), ps.getValueLengthMin());
+        return new EstimationResult(value, ps.getCount(), ps.getCmsCount(Hash.hash64(value.hashCode())), ps.getHll().estimate(), ps.getValueLengthTotal(), ps.getValueLengthMax(), ps.getValueLengthMin(), null);
     }
 
-    private void process(String prefix, JsonNode currentNode) {
+     void process(String prefix, JsonNode currentNode) {
         if (!prefix.isEmpty() && prefix.split("-").length == 1) {
             currentNode.fields().forEachRemaining(entry -> estimationResults.add(readProperty(entry.getKey(), entry.getValue())));
         }
@@ -93,16 +93,18 @@ class IndexReader {
     }
     public static void main(String[] args) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
-        File newState = new File("/Users/steffenvan/aem/stat.json");
+        File newState = new File("/Users/steffenvan/aem/statistics1.json");
         JsonNode node = objectMapper.readTree(newState);
         List<EstimationResult> results = new ArrayList<>();
         IndexReader ir = new IndexReader(results);
         ir.process("", node);
 
-        PrintStream o = new PrintStream("/Users/steffenvan/aem/properties_large.json");
+        // print out the
+        results.sort(Comparator.comparing(EstimationResult::getCount).thenComparing(EstimationResult::getHllCount).reversed());
+
+        PrintStream o = new PrintStream("/Users/steffenvan/aem/properties_small.json");
         System.setOut(o);
         System.out.println(results);
 
-        System.setOut(System.out);
     }
 }

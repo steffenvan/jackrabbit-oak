@@ -14,25 +14,25 @@ public class PropertyStatistics {
 	private final String name;
 	private long count;
 	private final CountMinSketch valueSketch;
-	private final TopKElements topKElements;
+	private final TopKValues topKValues;
 	private final HyperLogLog hll;
 	private long valueLengthTotal;
 	private long valueLengthMax;
 	private long valueLengthMin;
 
 	PropertyStatistics(String name, long count, HyperLogLog hll, CountMinSketch valueSketch,
-			TopKElements topKElements) {
-		this(name, count, hll, valueSketch, topKElements, 0, 0, Long.MAX_VALUE);
+			TopKValues topKValues) {
+		this(name, count, hll, valueSketch, topKValues, 0, 0, Long.MAX_VALUE);
 
 	}
 
 	PropertyStatistics(String name, long count, HyperLogLog hll, CountMinSketch valueSketch,
-					   TopKElements topKElements, long valueLengthTotal, long valueLengthMax, long valueLengthMin) {
+					   TopKValues topKValues, long valueLengthTotal, long valueLengthMax, long valueLengthMin) {
 		this.name = name;
 		this.count = count;
 		this.hll = hll;
 		this.valueSketch = valueSketch;
-		this.topKElements = topKElements;
+		this.topKValues = topKValues;
 		this.valueLengthTotal = valueLengthTotal;
 		this.valueLengthMax = valueLengthMax;
 		this.valueLengthMin = valueLengthMin;
@@ -44,15 +44,15 @@ public class PropertyStatistics {
 
 	void updateValueCounts(String val, long hash) {
 		valueSketch.add(hash);
-		topKElements.update(val, valueSketch.estimateCount(hash));
+		topKValues.update(val, valueSketch.estimateCount(hash));
 		long len = val.length();
 		valueLengthTotal += len;
 		valueLengthMax = Math.max(valueLengthMax, len);
 		valueLengthMin = Math.min(valueLengthMin, len);
 	}
 
-	List<TopKElements.ValueCountPair> getTopKValuesDescending() {
-		return topKElements.get();
+	List<TopKValues.ValueCountPair> getTopKValuesDescending() {
+		return topKValues.get();
 	}
 
 	CountMinSketch getValueSketch() {
