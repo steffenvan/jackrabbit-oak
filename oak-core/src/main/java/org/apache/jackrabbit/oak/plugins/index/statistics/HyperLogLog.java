@@ -7,7 +7,7 @@ import java.util.stream.Stream;
 public class HyperLogLog implements CardinalityEstimator {
 
     private final int m;
-    private byte[] counters;
+    private final byte[] counters;
     private final double am;
 
     public HyperLogLog(int m) {
