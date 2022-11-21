@@ -393,7 +393,10 @@ public class ContentStatistics extends AnnotatedStandardMBean
                             .equals(VIRTUAL_PROPERTY_NAME);
     }
 
-    // start with indexRules node
+    /*
+     starting from the "indexRule" node, we perform a simple DFS to find the
+     corresponding properties node of the index node.
+     */
     private NodeState getPropertiesNode(NodeState nodeState) {
         if (nodeState == null || !nodeState.exists()) {
             return EmptyNodeState.MISSING_NODE;
@@ -404,7 +407,10 @@ public class ContentStatistics extends AnnotatedStandardMBean
         }
 
         for (ChildNodeEntry c : nodeState.getChildNodeEntries()) {
-            return getPropertiesNode(c.getNodeState());
+            NodeState ns = getPropertiesNode(c.getNodeState());
+            if (ns.exists()) {
+                return ns;
+            }
         }
 
         return EmptyNodeState.MISSING_NODE;
