@@ -61,8 +61,8 @@ public class ContentStatistics extends AnnotatedStandardMBean
 
         String storedHll = getStringOrEmpty(
                 property.getProperty(StatisticsEditor.PROPERTY_HLL_NAME));
-        byte[] hllCounts = HyperLogLog.deserialize(storedHll);
-        HyperLogLog hll = new HyperLogLog(64, hllCounts);
+        byte[] hllData = HyperLogLog.deserialize(storedHll);
+        HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
 
         PropertyState topKValueNames = property.getProperty(
                 StatisticsEditor.PROPERTY_TOPK_NAME);
