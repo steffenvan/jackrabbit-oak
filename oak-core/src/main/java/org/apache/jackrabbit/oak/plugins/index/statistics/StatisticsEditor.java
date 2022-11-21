@@ -28,7 +28,7 @@ public class StatisticsEditor implements Editor {
 	public static final String DATA_NODE_NAME = "index";
 
 	public static final int DEFAULT_RESOLUTION = 1000;
-	public static final int DEFAULT_HLL_SIZE = 10;
+	public static final int DEFAULT_HLL_SIZE = 64;
 	public static final int K_ELEMENTS = 5;
 
 	public static final String PROPERTY_CMS_NAME = "propertySketch";
@@ -48,10 +48,10 @@ public class StatisticsEditor implements Editor {
 	public final static String VALUE_LENGTH_MAX = "valueLengthMax";
 	public final static String VALUE_LENGTH_MIN = "valueLengthMin";
 
-	// property cms parameters are not final as we read them in from the
-	// NodeBuilder in the provider. We then create the sketch and inject it this
-	// constructor. Since we don't create the value CMS outside this editor,
-	// we keep them final.
+	/* property cms parameters are not final as we read them in from the
+	  NodeBuilder in the provider. We then create the sketch and pass it to this
+	  constructor. On the other hand, since we don't create the value cms
+	  outside this editor, we keep them final. */
 	private final int valueCMSRows;
 	private final int valueCMSCols;
 	private CountMinSketch propertyNameCMS;
@@ -212,7 +212,7 @@ public class StatisticsEditor implements Editor {
 			ps = readPropertyStatistics(propertyName);
 			if (!ps.isPresent()) {
 				ps = Optional.of(new PropertyStatistics(propertyName, 0,
-														new HyperLogLog(64),
+														new HyperLogLog(DEFAULT_HLL_SIZE),
 														new CountMinSketch(
 																valueCMSRows,
 																valueCMSCols),
@@ -273,7 +273,7 @@ public class StatisticsEditor implements Editor {
 		CountMinSketch valueSketch = PropertyStatistics.readCMS(prop.getNodeState(), VALUE_SKETCH, VALUE_SKETCH_ROWS,
 				VALUE_SKETCH_COLS, LOG);
 		return Optional.of(new PropertyStatistics(propertyName, c,
-												  new HyperLogLog(64, hllData),
+												  new HyperLogLog(DEFAULT_HLL_SIZE, hllData),
 												  valueSketch,
 												  topKValues));
 	}
