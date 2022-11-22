@@ -15,6 +15,7 @@ import java.util.Iterator;
 import java.util.Comparator;
 
 import com.fasterxml.jackson.databind.node.JsonNodeType;
+import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
 import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.EstimationResult;
 
 class IndexReader {
@@ -94,6 +95,7 @@ class IndexReader {
     public static void main(String[] args) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         File newState = new File("/Users/steffenvan/aem/statistics1.json");
+        JsopBuilder builder = new JsopBuilder();
         JsonNode node = objectMapper.readTree(newState);
         List<EstimationResult> results = new ArrayList<>();
         IndexReader ir = new IndexReader(results);
