@@ -72,7 +72,7 @@ public class CustomCSVReaderTest {
     public void test() throws Exception {
         // hard coded path to the CSV file that contains the queries from Splunk
         Path path = Paths.get(
-                "/Users/steffenvan/Documents/jackrabbit-oak/oak-core/src/test/java/org/apache/jackrabbit/oak/plugins/index/statistics/state/export/queries2.csv");
+                "/Users/steffenvan/aem/jackrabbit-oak/oak-core/src/test/java/org/apache/jackrabbit/oak/plugins/index/statistics/state/export/queries.csv");
 
         Map<String, Integer> allIndexCounts = new HashMap<>();
         List<String> failedQueries = new ArrayList<>();
@@ -82,7 +82,7 @@ public class CustomCSVReaderTest {
         for (String q : queries) {
             NodeState nodeState = IndexConfigGeneratorHelper.getIndexConfig(q);
             if (nodeState.hasChildNode(INDEX_RULES)) {
-                Set<String> properties = cs.getIndexedProperties(nodeState);
+                Set<String> properties = cs.getPropertyNamesForIndexNode(nodeState);
                 for (String s : properties) {
                     allIndexCounts.merge(s, 1, Integer::sum);
                 }
@@ -96,7 +96,7 @@ public class CustomCSVReaderTest {
         counts.sort(Comparator.comparing(PropertyCount::getCount).reversed());
         System.out.println(counts);
         System.out.println(allIndexCounts);
-        System.out.println(failedQueries.size());
+//        System.out.println(failedQueries.size());
 //        String filename = "/Users/steffenvan/Documents/output.csv";
 
 //        mapToCSV(allIndexCounts, filename);
