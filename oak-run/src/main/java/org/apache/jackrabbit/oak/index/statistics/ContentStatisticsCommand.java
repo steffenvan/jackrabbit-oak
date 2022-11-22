@@ -18,6 +18,9 @@
  */
 package org.apache.jackrabbit.oak.index.statistics;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.PrintWriter;
 
 import org.apache.felix.inventory.Format;
@@ -87,7 +90,7 @@ public class ContentStatisticsCommand implements Command {
         }
     }
 
-    private void execute(NodeStoreFixture fixture) throws CommitFailedException {
+    private void execute(NodeStoreFixture fixture) throws CommitFailedException, IOException {
         MemoryNodeStore output = new MemoryNodeStore();
         NodeBuilder builder = output.getRoot().builder();
         NodeBuilder statisticsIndex = builder.
@@ -118,9 +121,20 @@ public class ContentStatisticsCommand implements Command {
         output.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
         StatisticsDefinitionPrinter printer = new StatisticsDefinitionPrinter(output);
         // TODO write to a file
-        PrintWriter out = new PrintWriter(System.out);
+        String name = "statistics";
+        String extension = ".json";
+        int num = 0;
+        String fName = name + num + extension;
+        File f = new File(fName);
+        while (f.exists()) {
+            num++;
+            fName = name + num + extension;
+            f = new File(fName);
+        }
+
+        PrintWriter out = new PrintWriter(new FileWriter(fName));
         printer.print(out, Format.JSON, false);
-        out.flush();
+        out.close();
     }
 
     static class Callback implements IndexUpdateCallback, NodeTraversalCallback {
