@@ -1,10 +1,17 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import org.apache.jackrabbit.oak.api.PropertyState;
+import org.apache.jackrabbit.oak.api.Type;
+import org.apache.jackrabbit.oak.spi.state.NodeState;
+import org.slf4j.Logger;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
 
 public class CountMinSketch implements FrequencyCounter {
 	private final long[][] items;
@@ -106,4 +113,30 @@ public class CountMinSketch implements FrequencyCounter {
 		List<Long> longList = Stream.of(allStuff).map(Long::valueOf).collect(Collectors.toList());
 		return longList.stream().mapToLong(i -> i).toArray();
 	}
+
+	public static CountMinSketch readCMS(NodeState node, String cmsName, String rowName, String colName,
+										 Logger logger) {
+		PropertyState rowsProp = node.getProperty(rowName);
+		PropertyState colsProp = node.getProperty(colName);
+
+		int rows = getLongOrZero(rowsProp).intValue();
+		int cols = getLongOrZero(colsProp).intValue();
+		long[][] data = new long[rows][cols];
+
+		for (int i = 0; i < rows; i++) {
+			PropertyState ps = node.getProperty(cmsName + i);
+			if (ps != null) {
+				String s = ps.getValue(Type.STRING);
+				try {
+					long[] row = CountMinSketch.deserialize(s);
+					data[i] = row;
+				} catch (NumberFormatException e) {
+					logger.warn("Can not parse " + s);
+				}
+			}
+		}
+
+		return new CountMinSketch(rows, cols, data);
+	}
+
 }

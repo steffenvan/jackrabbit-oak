@@ -73,7 +73,7 @@ public class StatisticsEditor implements Editor {
 		this.propertyStatistics = propertyStatistics;
 		if (root.definition.hasChildNode(DATA_NODE_NAME)) {
 			NodeBuilder data = root.definition.getChildNode(DATA_NODE_NAME);
-			this.propertyNameCMS = PropertyStatistics.readCMS(data.getNodeState(), PROPERTY_CMS_NAME, PROPERTY_CMS_ROWS_NAME,
+			this.propertyNameCMS = CountMinSketch.readCMS(data.getNodeState(), PROPERTY_CMS_NAME, PROPERTY_CMS_ROWS_NAME,
 															  PROPERTY_CMS_COLS_NAME, LOG);
 		}
 	}
@@ -270,7 +270,7 @@ public class StatisticsEditor implements Editor {
 		PropertyState topKValueCounts = prop.getProperty(PROPERTY_TOPK_COUNT);
 		PropertyState topKNum = prop.getProperty(PROPERTY_TOP_K);
 		TopKValues topKValues = readTopKElements(topKValueNames, topKValueCounts, topKNum);
-		CountMinSketch valueSketch = PropertyStatistics.readCMS(prop.getNodeState(), VALUE_SKETCH, VALUE_SKETCH_ROWS,
+		CountMinSketch valueSketch = CountMinSketch.readCMS(prop.getNodeState(), VALUE_SKETCH, VALUE_SKETCH_ROWS,
 				VALUE_SKETCH_COLS, LOG);
 		return Optional.of(new PropertyStatistics(propertyName, c,
 												  new HyperLogLog(DEFAULT_HLL_SIZE, hllData),

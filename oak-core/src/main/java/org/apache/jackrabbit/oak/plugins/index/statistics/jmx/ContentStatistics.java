@@ -74,7 +74,7 @@ public class ContentStatistics extends AnnotatedStandardMBean
                                                  topKValueCounts,
                                                  (int) topK);
 
-        CountMinSketch cms = PropertyStatistics.readCMS(statisticsDataNode.get(),
+        CountMinSketch cms = CountMinSketch.readCMS(statisticsDataNode.get(),
                                                         StatisticsEditor.PROPERTY_CMS_NAME,
                                                         StatisticsEditor.PROPERTY_CMS_ROWS_NAME,
                                                         StatisticsEditor.PROPERTY_CMS_COLS_NAME,
@@ -176,7 +176,7 @@ public class ContentStatistics extends AnnotatedStandardMBean
             return Optional.empty();
         }
 
-        CountMinSketch nameSketch = PropertyStatistics.readCMS(
+        CountMinSketch nameSketch = CountMinSketch.readCMS(
                 statisticsDataNode.get(), StatisticsEditor.PROPERTY_CMS_NAME,
                 StatisticsEditor.PROPERTY_CMS_ROWS_NAME,
                 StatisticsEditor.PROPERTY_CMS_COLS_NAME, CS_LOG);
@@ -233,7 +233,7 @@ public class ContentStatistics extends AnnotatedStandardMBean
         long valueLengthMin = getLongOrZero(
                 propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
 
-        CountMinSketch cms = PropertyStatistics.readCMS(indexNode,
+        CountMinSketch cms = CountMinSketch.readCMS(indexNode,
                                                         StatisticsEditor.PROPERTY_CMS_NAME,
                                                         StatisticsEditor.PROPERTY_CMS_ROWS_NAME,
                                                         StatisticsEditor.PROPERTY_CMS_COLS_NAME,

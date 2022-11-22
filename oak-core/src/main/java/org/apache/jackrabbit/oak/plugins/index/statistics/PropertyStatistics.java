@@ -59,31 +59,6 @@ public class PropertyStatistics {
 		return new CountMinSketch(valueSketch);
 	}
 
-	public static CountMinSketch readCMS(NodeState node, String cmsName, String rowName, String colName,
-			Logger logger) {
-		PropertyState rowsProp = node.getProperty(rowName);
-		PropertyState colsProp = node.getProperty(colName);
-
-		int rows = getLongOrZero(rowsProp).intValue();
-		int cols = getLongOrZero(colsProp).intValue();
-		long[][] data = new long[rows][cols];
-
-		for (int i = 0; i < rows; i++) {
-			PropertyState ps = node.getProperty(cmsName + i);
-			if (ps != null) {
-				String s = ps.getValue(Type.STRING);
-				try {
-					long[] row = CountMinSketch.deserialize(s);
-					data[i] = row;
-				} catch (NumberFormatException e) {
-					logger.warn("Can not parse " + s);
-				}
-			}
-		}
-
-		return new CountMinSketch(rows, cols, data);
-	}
-
 	long getValueLengthTotal() {
 		return valueLengthTotal;
 	}
