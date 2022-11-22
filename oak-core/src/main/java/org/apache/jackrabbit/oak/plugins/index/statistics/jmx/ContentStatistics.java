@@ -163,7 +163,7 @@ public class ContentStatistics extends AnnotatedStandardMBean
     }
 
     @Override
-    public Optional<List<TopKValues.ProportionOfTotalCount>> getPropertyInfoForSingleProperty(
+    public Optional<List<TopKValues.ProportionInfo>> getValueProportionInfoForSingleProperty(
             String name) {
         Optional<NodeState> statisticsDataNode = getStatisticsIndexDataNodeOrNull();
         if (!statisticsDataNode.isPresent()) {
@@ -197,24 +197,24 @@ public class ContentStatistics extends AnnotatedStandardMBean
                                                  topKValueCounts, k);
 
         List<TopKValues.ValueCountPair> topK = topKValues.get();
-        List<TopKValues.ProportionOfTotalCount> proportionOfTotalCounts = new ArrayList<>();
+        List<TopKValues.ProportionInfo> proportionInfo = new ArrayList<>();
         for (TopKValues.ValueCountPair pi : topK) {
-            TopKValues.ProportionOfTotalCount dpi = new TopKValues.ProportionOfTotalCount(pi.getValue(),
-                                                                                          pi.getCount(),
-                                                                                          totalCount);
-            proportionOfTotalCounts.add(dpi);
+            TopKValues.ProportionInfo dpi = new TopKValues.ProportionInfo(pi.getValue(),
+                                                                          pi.getCount(),
+                                                                          totalCount);
+            proportionInfo.add(dpi);
         }
 
-        long topKTotalCount = proportionOfTotalCounts.stream()
-                                                     .mapToLong(
-                                                             TopKValues.ProportionOfTotalCount::getCount)
-                                                     .sum();
-        TopKValues.ProportionOfTotalCount totalInfo = new TopKValues.ProportionOfTotalCount("TopKCount",
-                                                                                            topKTotalCount,
-                                                                                            totalCount);
-        proportionOfTotalCounts.add(totalInfo);
+        long topKTotalCount = proportionInfo.stream()
+                                             .mapToLong(
+                                                     TopKValues.ProportionInfo::getCount)
+                                             .sum();
+        TopKValues.ProportionInfo totalInfo = new TopKValues.ProportionInfo("TopKCount",
+                                                                            topKTotalCount,
+                                                                            totalCount);
+        proportionInfo.add(totalInfo);
 
-        return Optional.of(proportionOfTotalCounts);
+        return Optional.of(proportionInfo);
     }
 
     private EstimationResult getSingleEstimationResult(String name,

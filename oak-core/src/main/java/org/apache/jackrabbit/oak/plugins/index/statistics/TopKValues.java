@@ -13,12 +13,12 @@ public class TopKValues {
 	private final PriorityQueue<ValueCountPair> topValues;
 	private final Set<String> currValues;
 
-	public static class ProportionOfTotalCount {
+	public static class ProportionInfo {
 		private final String name;
 		private final long valueCount;
 		private final long totalValueCount;
 
-		public ProportionOfTotalCount(String name, long valueCount, long totalValueCount) {
+		public ProportionInfo(String name, long valueCount, long totalValueCount) {
 			this.name = name;
 			this.valueCount = valueCount;
 			this.totalValueCount = totalValueCount;

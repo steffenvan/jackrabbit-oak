@@ -88,5 +88,5 @@ public interface ContentStatisticsMBean {
      */
     @Description(
             "Returns the percentage each of the top K values make out of all the values of the specified property and what percentage all the top K values make out of the property.")
-    Optional<List<TopKValues.ProportionOfTotalCount>> getPropertyInfoForSingleProperty(String name);
+    Optional<List<TopKValues.ProportionInfo>> getValueProportionInfoForSingleProperty(String name);
 }
