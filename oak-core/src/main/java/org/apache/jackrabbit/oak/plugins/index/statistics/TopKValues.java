@@ -1,5 +1,7 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
+
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.PriorityQueue;
@@ -14,27 +16,46 @@ public class TopKValues {
 	private final Set<String> currValues;
 
 	public static class ProportionInfo {
-		private final String name;
-		private final long valueCount;
+		private final String value;
+		private final long count;
 		private final long totalValueCount;
 
-		public ProportionInfo(String name, long valueCount, long totalValueCount) {
-			this.name = name;
-			this.valueCount = valueCount;
+		public ProportionInfo(String value, long count, long totalValueCount) {
+			this.value = value;
+			this.count = count;
 			this.totalValueCount = totalValueCount;
 		}
 
-		double percentage() {
-			return Math.round(((double) valueCount / totalValueCount) * 100);
+		String percentage() {
+			String percent = String.valueOf(
+					Math.round(((double) count / totalValueCount) * 100));
+			return percent + "%";
 		}
 
 		public long getCount() {
-			return valueCount;
+			return count;
 		}
 
 		@Override
 		public String toString() {
-			return "{" + name + " | " + valueCount + "/" + totalValueCount + " | " + percentage() + "%" + "}";
+			JsopBuilder builder = new JsopBuilder();
+			builder.object();
+
+			builder.key("value");
+			builder.value(value);
+
+			builder.key("count");
+			builder.value(count);
+
+			builder.key("totalCount");
+			builder.value(totalValueCount);
+
+			builder.key("percentage");
+			builder.value(percentage());
+
+			builder.endObject();
+
+			return builder.toString();
 		}
 	}
 	public static class ValueCountPair implements Comparable<ValueCountPair> {
@@ -75,12 +96,8 @@ public class TopKValues {
 				return false;
 			}
 			ValueCountPair other = (ValueCountPair) o;
-			return this.value.equals(other.value);
-		}
 
-		@Override
-		public String toString() {
-			return "{" + value + " : " + count + "}";
+			return this.value.equals(other.value);
 		}
 	}
 
@@ -178,42 +195,23 @@ public class TopKValues {
 		for (ValueCountPair topValue : topValues) {
 			names.add(topValue.value);
 		}
+
 		return names;
 	}
 
-//	@Override
-//	public String toString() {
-//		List<ValueCountPair> topKSortedValues = get();
-//		return topKSortedValues.toString();
-//		ObjectMapper mapper = new ObjectMapper();
-//		try {
-//			return mapper.writeValueAsString(topKSortedValues);
-//		} catch (JsonProcessingException e) {
-//			throw new RuntimeException(e);
-//		}
-	}
-//		StringBuilder sb = new StringBuilder();
-//		for (TopKPropertyInfo tk : topKSortedValues) {
-//			sb.append("{");
-//			sb.append(JsopBuilder.encode(tk.toString()));
-//			sb.append("}");
-//		}
-//		return sb.toString();
-//		return JsopBuilder.encode(topKSortedValues.toString());
-//	}
-//		StringBuilder sb = new StringBuilder();
-//		sb.append("{");
-//		int n = topKSortedValues.size();
-//		int size = Math.min(n, k);
-//		for (int i = 0; i < size; i++) {
-//			if (i < size - 1) {
-//				sb.append(topKSortedValues.get(i).toString());
-//				sb.append(", ");
-//			} else {
-//				sb.append(topKSortedValues.get(i).toString());
-//			}
-//		}
-//		sb.append("}");
-//		return JsopBuilder.encode(sb.toString());
+	@Override
+	public String toString() {
+		List<ValueCountPair> topKSortedValues = get();
+		JsopBuilder builder = new JsopBuilder();
+		builder.object();
 
-//}
+		for (ValueCountPair vcp : topKSortedValues) {
+			builder.key(vcp.getValue());
+			builder.value(vcp.getCount());
+		}
+
+		builder.endObject();
+
+		return builder.toString();
+	}
+}

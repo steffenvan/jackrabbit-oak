@@ -1,12 +1,9 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
 import org.apache.jackrabbit.oak.plugins.index.statistics.TopKValues;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.PriorityQueue;
 
 public class EstimationResult {
     private final String propertyName;
@@ -16,9 +13,9 @@ public class EstimationResult {
     private final long valueLengthTotal;
     private final long valueLengthMax;
     private final long valueLengthMin;
-    private final TopKValues topKValues;
+    private final List<TopKValues.ValueCountPair> topKValuesDescending;
 
-    public EstimationResult(String propertyName, long count, long cmsCount, long hllCount, long valueLengthTotal, long valueLengthMax, long valueLengthMin, TopKValues topKValues) {
+    public  EstimationResult(String propertyName, long count, long cmsCount, long hllCount, long valueLengthTotal, long valueLengthMax, long valueLengthMin, List<TopKValues.ValueCountPair> topKValuesDescending) {
         this.propertyName = propertyName;
         this.count = count;
         this.cmsCount = cmsCount;
@@ -26,7 +23,7 @@ public class EstimationResult {
         this.valueLengthTotal = valueLengthTotal;
         this.valueLengthMax = valueLengthMax;
         this.valueLengthMin = valueLengthMin;
-        this.topKValues = topKValues;
+        this.topKValuesDescending = topKValuesDescending;
     }
 
     public long getCount() {
@@ -45,75 +42,44 @@ public class EstimationResult {
         return propertyName;
     }
 
-    public String getTopKValues() {
-        return topKValues.get().toString();
-    }
-
-    public long getValueLengthTotal() {
-        return valueLengthTotal;
-    }
-
-    public long getValueLengthMax() {
-        return valueLengthMax;
-    }
-
-    public long getValueLengthMin() {
-        return valueLengthMin;
-    }
-
     @Override
     public String toString() {
-        try {
-            return new ObjectMapper().writeValueAsString(this);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+
+        JsopBuilder builder = new JsopBuilder();
+        builder.object();
+
+        builder = builder.key("propertyName");
+        builder = builder.value(propertyName);
+
+        builder = builder.key("count");
+        builder = builder.value(count);
+
+        builder = builder.key("cmsCount");
+        builder = builder.value(cmsCount);
+
+        builder = builder.key("hllCount");
+        builder = builder.value(hllCount);
+
+        builder = builder.key("valueLengthTotal");
+        builder = builder.value(valueLengthTotal);
+
+        builder = builder.key("valueLengthMax");
+        builder = builder.value(valueLengthMax);
+
+        builder = builder.key("valueLengthMin");
+        builder = builder.value(valueLengthMin);
+
+        builder = builder.key("topKValues");
+
+        builder.object();
+        for (TopKValues.ValueCountPair vcp : topKValuesDescending) {
+            builder.key(vcp.getValue());
+            builder.value(vcp.getCount());
         }
-//        String result = "{";
-////        JsopBuilder.encode()
-//        result += entry("count", count);
-//        result += ", ";
-//        result += entry("topKValues", topValues);
-//        result += ", ";
-//        result += entry("propertyName", propertyName);
-//        result += ", ";
-//        result += entry("cmsCount", cmsCount);
-//        result += ", ";
-//        result += entry("hll", hllCount);
-//        result += ", ";
-//        result += entry("valueLengthTotal", valueLengthTotal);
-//        result += ", ";
-//        result += entry("valueLengthMax", valueLengthMax);
-//        result += ", ";
-//        result += entry("valueLengthMin", valueLengthMin);
-//        result += "}";
-//        return result;
-    }
+        builder.endObject();
 
-    private String entry(String name, String val) {
-        return name + ":" + val;
-//        return quotes ? "\"" + name + "\"" + " : " + "\"" + val + "\"" : "\"" + name + "\"" + " : " + val;
-    }
+        builder.endObject();
 
-    private String entry(String name, long val) {
-        return name + ":" + val;
-    }
-
-    private String entry(String name, PriorityQueue<TopKValues.ValueCountPair> val) {
-        return "\"" + name + "\"" + " : " + val;
-    }
-
-    public static void main(String[] args) {
-        long avgLength = 400L;
-        long maxLength = 30000L;
-        long minLength = 200L;
-        List<TopKValues.ValueCountPair> values = new ArrayList<>();
-
-        String test = "\"fooBaz";
-//        values.add(new TopKValues.ValueCountPair(test, 32L));
-        String name_s = "function check() { var path = workflowData.getPayload().toString(); var node = jcrSession.getNode(path); return 'fai... [577854073]";
-//        values.add(new TopKValues.ValueCountPair(name_s, 10));
-        String s = "";
-//        EstimationResult er = new EstimationResult("jcr:primaryType", 42, 32, 1, avgLength, maxLength, minLength, values);
-//        System.out.println(er);
+        return builder.toString();
     }
 }

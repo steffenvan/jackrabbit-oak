@@ -85,7 +85,7 @@ public class ContentStatistics extends AnnotatedStandardMBean
                 new EstimationResult(name, count, cms.estimateCount(hash64),
                                      hll.estimate(), valueLengthTotal,
                                      valueLengthMax, valueLengthMin,
-                                     topKValues));
+                                     topKValues.get()));
     }
 
     private Optional<NodeState> getStatisticsIndexDataNodeOrNull() {
@@ -256,7 +256,7 @@ public class ContentStatistics extends AnnotatedStandardMBean
         return new EstimationResult(name, count, cms.estimateCount(hash64),
                                     hll.estimate(), valueLengthTotal,
                                     valueLengthMax, valueLengthMin,
-                                    topKValues);
+                                    topKValues.get());
     }
 
     private List<EstimationResult> getEstimationResults(
