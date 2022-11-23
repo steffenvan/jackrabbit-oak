@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
 
 public class PropertyStatistics {
-
 	private final String name;
 	private long count;
 	private final CountMinSketch valueSketch;

@@ -19,6 +19,8 @@ import org.slf4j.LoggerFactory;
 
 import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getStringOrEmpty;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTIES;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTY_TOP_K_NAME;
 
 public class ContentStatistics extends AnnotatedStandardMBean
         implements ContentStatisticsMBean {
@@ -31,10 +33,6 @@ public class ContentStatistics extends AnnotatedStandardMBean
     private static final String INDEX_RULES = "indexRules";
     private static final String PROPERTY_NAME = "name";
     private static final String VIRTUAL_PROPERTY_NAME = ":nodeName";
-    private static final String PROPERTIES = "properties";
-    private static final String EXACT_COUNT = "count";
-    private static final String PROPERTY_TOP_K_NAME = "mostFrequentValueNames";
-    private static final String PROPERTY_TOP_K_COUNT = "mostFrequentValueCounts";
 
     public ContentStatistics(NodeStore store) {
         super(ContentStatisticsMBean.class);
@@ -50,7 +48,8 @@ public class ContentStatistics extends AnnotatedStandardMBean
 
         NodeState property = statisticsDataNode.get().getChildNode(PROPERTIES)
                                                .getChildNode(name);
-        long count = getLongOrZero(property.getProperty(EXACT_COUNT));
+        long count = getLongOrZero(
+                property.getProperty(StatisticsEditor.EXACT_COUNT));
         long valueLengthTotal = getLongOrZero(
                 property.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
         long valueLengthMax = getLongOrZero(
@@ -65,9 +64,9 @@ public class ContentStatistics extends AnnotatedStandardMBean
         HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
 
         PropertyState topKValueNames = property.getProperty(
-                StatisticsEditor.PROPERTY_TOPK_NAME);
+                PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = property.getProperty(
-                StatisticsEditor.PROPERTY_TOPK_COUNT);
+                StatisticsEditor.PROPERTY_TOP_K_COUNT);
         long topK = getLongOrZero(
                 property.getProperty(StatisticsEditor.PROPERTY_TOP_K));
         TopKValues topKValues = readTopKElements(topKValueNames,
@@ -75,10 +74,10 @@ public class ContentStatistics extends AnnotatedStandardMBean
                                                  (int) topK);
 
         CountMinSketch cms = CountMinSketch.readCMS(statisticsDataNode.get(),
-                                                        StatisticsEditor.PROPERTY_CMS_NAME,
-                                                        StatisticsEditor.PROPERTY_CMS_ROWS_NAME,
-                                                        StatisticsEditor.PROPERTY_CMS_COLS_NAME,
-                                                        CS_LOG);
+                                                    StatisticsEditor.PROPERTY_CMS_NAME,
+                                                    StatisticsEditor.PROPERTY_CMS_ROWS_NAME,
+                                                    StatisticsEditor.PROPERTY_CMS_COLS_NAME,
+                                                    CS_LOG);
         long hash64 = Hash.hash64(name.hashCode());
 
         return Optional.of(
@@ -145,7 +144,8 @@ public class ContentStatistics extends AnnotatedStandardMBean
         if (!statisticsDataNode.isPresent()) {
             return Optional.empty();
         }
-        NodeState properties = statisticsDataNode.get().getChildNode(PROPERTIES);
+        NodeState properties = statisticsDataNode.get()
+                                                 .getChildNode(PROPERTIES);
         if (!properties.hasChildNode(name)) {
             return Optional.empty();
         }
@@ -153,9 +153,9 @@ public class ContentStatistics extends AnnotatedStandardMBean
         NodeState propertyNode = properties.getChildNode(name);
 
         PropertyState topKValueNames = propertyNode.getProperty(
-                PROPERTY_TOP_K_NAME);
+                StatisticsEditor.PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = propertyNode.getProperty(
-                PROPERTY_TOP_K_COUNT);
+                StatisticsEditor.PROPERTY_TOP_K_COUNT);
         TopKValues topKValues = readTopKElements(topKValueNames,
                                                  topKValueCounts, k);
 
@@ -187,9 +187,9 @@ public class ContentStatistics extends AnnotatedStandardMBean
         NodeState propertyNode = statisticsProperties.getChildNode(name);
 
         PropertyState topKValueNames = propertyNode.getProperty(
-                PROPERTY_TOP_K_NAME);
+                StatisticsEditor.PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = propertyNode.getProperty(
-                PROPERTY_TOP_K_COUNT);
+                StatisticsEditor.PROPERTY_TOP_K_COUNT);
         int k = Math.toIntExact(getLongOrZero(propertyNode.getProperty(
                 StatisticsEditor.PROPERTY_TOP_K)));
 
@@ -199,19 +199,21 @@ public class ContentStatistics extends AnnotatedStandardMBean
         List<TopKValues.ValueCountPair> topK = topKValues.get();
         List<TopKValues.ProportionInfo> proportionInfo = new ArrayList<>();
         for (TopKValues.ValueCountPair pi : topK) {
-            TopKValues.ProportionInfo dpi = new TopKValues.ProportionInfo(pi.getValue(),
-                                                                          pi.getCount(),
-                                                                          totalCount);
+            TopKValues.ProportionInfo dpi = new TopKValues.ProportionInfo(
+                    pi.getValue(),
+                    pi.getCount(),
+                    totalCount);
             proportionInfo.add(dpi);
         }
 
         long topKTotalCount = proportionInfo.stream()
-                                             .mapToLong(
-                                                     TopKValues.ProportionInfo::getCount)
-                                             .sum();
-        TopKValues.ProportionInfo totalInfo = new TopKValues.ProportionInfo("TopKCount",
-                                                                            topKTotalCount,
-                                                                            totalCount);
+                                            .mapToLong(
+                                                    TopKValues.ProportionInfo::getCount)
+                                            .sum();
+        TopKValues.ProportionInfo totalInfo = new TopKValues.ProportionInfo(
+                "TopKCount",
+                topKTotalCount,
+                totalCount);
         proportionInfo.add(totalInfo);
 
         return Optional.of(proportionInfo);
@@ -222,7 +224,8 @@ public class ContentStatistics extends AnnotatedStandardMBean
         NodeState properties = indexNode.getChildNode(PROPERTIES);
         NodeState propertyNode = properties.getChildNode(name);
 
-        long count = getLongOrZero(propertyNode.getProperty(EXACT_COUNT));
+        long count = getLongOrZero(
+                propertyNode.getProperty(StatisticsEditor.EXACT_COUNT));
         String uniqueHll = getStringOrEmpty(
                 propertyNode.getProperty(StatisticsEditor.PROPERTY_HLL_NAME));
 
@@ -234,18 +237,18 @@ public class ContentStatistics extends AnnotatedStandardMBean
                 propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
 
         CountMinSketch cms = CountMinSketch.readCMS(indexNode,
-                                                        StatisticsEditor.PROPERTY_CMS_NAME,
-                                                        StatisticsEditor.PROPERTY_CMS_ROWS_NAME,
-                                                        StatisticsEditor.PROPERTY_CMS_COLS_NAME,
-                                                        CS_LOG);
+                                                    StatisticsEditor.PROPERTY_CMS_NAME,
+                                                    StatisticsEditor.PROPERTY_CMS_ROWS_NAME,
+                                                    StatisticsEditor.PROPERTY_CMS_COLS_NAME,
+                                                    CS_LOG);
 
         byte[] hllData = HyperLogLog.deserialize(uniqueHll);
         HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
 
         PropertyState topKValueNames = propertyNode.getProperty(
-                StatisticsEditor.PROPERTY_TOPK_NAME);
+                PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = propertyNode.getProperty(
-                StatisticsEditor.PROPERTY_TOPK_COUNT);
+                StatisticsEditor.PROPERTY_TOP_K_COUNT);
         PropertyState topK = propertyNode.getProperty(
                 StatisticsEditor.PROPERTY_TOP_K);
         TopKValues topKValues = readTopKElements(topKValueNames,
@@ -380,17 +383,17 @@ public class ContentStatistics extends AnnotatedStandardMBean
 
     private boolean hasValidPropertyNameNode(NodeState nodeState) {
         return nodeState.exists() && (nodeState.hasProperty(PROPERTY_NAME) ||
-                nodeState.hasProperty("properties"))
+                nodeState.hasProperty(PROPERTIES))
                 && !isRegExp(nodeState) && !hasVirtualProperty(nodeState);
     }
 
     private boolean hasVirtualProperty(NodeState nodeState) {
         return nodeState.hasProperty(PROPERTY_NAME)
-                && nodeState.getProperty(PROPERTY_NAME).getValue(Type.STRING)
-                            .equals(VIRTUAL_PROPERTY_NAME)
-                || nodeState.hasProperty("properties")
-                && nodeState.getProperty("properties").getValue(Type.STRING)
-                            .equals(VIRTUAL_PROPERTY_NAME);
+                && VIRTUAL_PROPERTY_NAME.equals(
+                getStringOrEmpty(nodeState.getProperty(PROPERTY_NAME)))
+                || nodeState.hasProperty(PROPERTIES)
+                && VIRTUAL_PROPERTY_NAME.equals(
+                getStringOrEmpty(nodeState.getProperty(PROPERTIES)));
     }
 
     /*
