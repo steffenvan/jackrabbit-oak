@@ -563,8 +563,7 @@ public class Oak {
 		StatisticsProvider statisticsProvider = WhiteboardUtils.getService(whiteboard, StatisticsProvider.class);
 		if (statisticsProvider != null) {
 			QueryEngineSettings newSettings = new QueryEngineSettings(statisticsProvider);
-			newSettings.setFullTextComparisonWithoutIndex(
-					this.queryEngineSettings.settings.getFullTextComparisonWithoutIndex());
+			newSettings.setFullTextComparisonWithoutIndex(this.queryEngineSettings.settings.getFullTextComparisonWithoutIndex());
 			newSettings.setFailTraversal(this.queryEngineSettings.getFailTraversal());
 			newSettings.setFastQuerySize(this.queryEngineSettings.isFastQuerySize());
 			newSettings.setLimitInMemory(this.queryEngineSettings.getLimitInMemory());
@@ -1007,7 +1006,7 @@ public class Oak {
 
 		private final Iterable<IndexEditorProvider> indexEditorProviders = ImmutableList.of(
 				new ReferenceEditorProvider(), new PropertyIndexEditorProvider(), new NodeCounterEditorProvider(),
-				new StatisticsEditorProvider(), new OrderedPropertyIndexEditorProvider());
+				new OrderedPropertyIndexEditorProvider(), new StatisticsEditorProvider());
 
 		private final Iterable<QueryIndexProvider> queryIndexProviders = ImmutableList.of(new ReferenceIndexProvider(),
 				new PropertyIndexProvider(), new NodeTypeIndexProvider());
