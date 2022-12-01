@@ -1,13 +1,15 @@
-package org.apache.jackrabbit.oak.plugins.index.statistics.state.export;
+package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import org.apache.jackrabbit.oak.commons.json.JsopReader;
 import org.apache.jackrabbit.oak.commons.json.JsopTokenizer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class JsonArrayParser {
 
-    public static List<String> read(String json, int type) {
+    private static List<String> read(String json, int type) {
         List<String> result = new ArrayList<>();
         JsopTokenizer tokenizer = new JsopTokenizer(json);
 
@@ -22,5 +24,15 @@ public class JsonArrayParser {
         tokenizer.read(JsopTokenizer.END);
 
         return result;
+    }
+
+    public static List<String> readString(String json) {
+        return read(json, JsopReader.STRING);
+    }
+
+    public static List<Long> readNumbers(String json) {
+        return read(json, JsopReader.NUMBER).stream()
+                                            .map(Long::parseLong)
+                                            .collect(Collectors.toList());
     }
 }
