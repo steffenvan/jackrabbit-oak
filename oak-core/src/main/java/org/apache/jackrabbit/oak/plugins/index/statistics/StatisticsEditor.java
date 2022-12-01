@@ -1,13 +1,5 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
-import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getStringOrEmpty;
-
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
@@ -22,10 +14,17 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getStringOrEmpty;
+
 public class StatisticsEditor implements Editor {
 
-    public static final Logger LOG = LoggerFactory.getLogger(
-            StatisticsEditor.class);
+    public static final Logger LOG = LoggerFactory.getLogger(StatisticsEditor.class);
 
     public static final String DATA_NODE_NAME = "index";
     public static final String PROPERTIES = "properties";
@@ -58,11 +57,11 @@ public class StatisticsEditor implements Editor {
       outside this editor, we keep them final. */
     private final int valueCMSRows;
     private final int valueCMSCols;
-    private CountMinSketch propertyNameCMS;
     private final Map<String, PropertyStatistics> propertyStatistics;
     private final StatisticsRoot root;
     private final StatisticsEditor parent;
     private final String name;
+    private CountMinSketch propertyNameCMS;
     private SipHash hash;
     private int recursionLevel;
 
@@ -78,12 +77,12 @@ public class StatisticsEditor implements Editor {
         this.propertyStatistics = propertyStatistics;
         if (root.definition.hasChildNode(DATA_NODE_NAME)) {
             NodeBuilder data = root.definition.getChildNode(DATA_NODE_NAME);
-            this.propertyNameCMS = CountMinSketch.readCMS(data.getNodeState(),
-                                                          PROPERTY_CMS_NAME,
-                                                          PROPERTY_CMS_ROWS_NAME,
-                                                          PROPERTY_CMS_COLS_NAME,
-                                                          LOG);
+            this.propertyNameCMS = CountMinSketch.readCMS(data.getNodeState(), PROPERTY_CMS_NAME, PROPERTY_CMS_ROWS_NAME, PROPERTY_CMS_COLS_NAME, LOG);
         }
+    }
+
+    private static void setPrimaryType(NodeBuilder builder) {
+        builder.setProperty(JCR_PRIMARYTYPE, NodeTypeConstants.NT_OAK_UNSTRUCTURED, Type.NAME);
     }
 
     public CountMinSketch getCMS() {
@@ -144,41 +143,31 @@ public class StatisticsEditor implements Editor {
             statNode.setProperty("count", propStats.getCount());
 
             String hllSerialized = propStats.getHll().serialize();
+            // TODO: consider using HyperLogLog4TailCut64 so that we only store
+            //  a long rather than a list.
+            statNode.setProperty(PROPERTY_HLL_NAME, hllSerialized, Type.STRING);
 
             CountMinSketch valueSketch = propStats.getValueSketch();
             String[] valueSketchSerialized = valueSketch.serialize();
 
             for (int i = 0; i < valueSketchSerialized.length; i++) {
-                statNode.setProperty(VALUE_SKETCH + i,
-                                     valueSketchSerialized[i]);
+                statNode.setProperty(
+                        VALUE_SKETCH + i, valueSketchSerialized[i]);
             }
 
-            statNode.setProperty(VALUE_SKETCH_ROWS,
-                                 (long) valueSketch.getRows(), Type.LONG);
-            statNode.setProperty(VALUE_SKETCH_COLS,
-                                 (long) valueSketch.getCols(), Type.LONG);
-            statNode.setProperty(VALUE_LENGTH_TOTAL,
-                                 propStats.getValueLengthTotal(), Type.LONG);
-            statNode.setProperty(VALUE_LENGTH_MAX,
-                                 propStats.getValueLengthMax(), Type.LONG);
-            statNode.setProperty(VALUE_LENGTH_MIN,
-                                 propStats.getValueLengthMin(), Type.LONG);
+            statNode.setProperty(VALUE_SKETCH_ROWS, (long) valueSketch.getRows(), Type.LONG);
+            statNode.setProperty(VALUE_SKETCH_COLS, (long) valueSketch.getCols(), Type.LONG);
+            statNode.setProperty(VALUE_LENGTH_TOTAL, propStats.getValueLengthTotal(), Type.LONG);
+            statNode.setProperty(VALUE_LENGTH_MAX, propStats.getValueLengthMax(), Type.LONG);
+            statNode.setProperty(VALUE_LENGTH_MIN, propStats.getValueLengthMin(), Type.LONG);
 
-            // TODO: consider using HyperLogLog4TailCut64 so that we only store
-            //  a long rather than array
-            statNode.setProperty(PROPERTY_HLL_NAME, hllSerialized);
             List<TopKValues.ValueCountPair> topKElements = propStats.getTopKValuesDescending();
             if (!topKElements.isEmpty()) {
-                List<String> valueNames = getByFieldName(topKElements,
-                                                         TopKValues.ValueCountPair::getValue);
-                List<Long> valueCounts = getByFieldName(topKElements,
-                                                        TopKValues.ValueCountPair::getCount);
-                statNode.setProperty(PROPERTY_TOP_K_NAME, valueNames,
-                                     Type.STRINGS);
-                statNode.setProperty(PROPERTY_TOP_K_COUNT, valueCounts,
-                                     Type.LONGS);
-                statNode.setProperty(PROPERTY_TOP_K, (long) valueCounts.size(),
-                                     Type.LONG);
+                List<String> valueNames = getByFieldName(topKElements, TopKValues.ValueCountPair::getValue);
+                List<Long> valueCounts = getByFieldName(topKElements, TopKValues.ValueCountPair::getCount);
+                statNode.setProperty(PROPERTY_TOP_K_NAME, valueNames, Type.STRINGS);
+                statNode.setProperty(PROPERTY_TOP_K_COUNT, valueCounts, Type.LONGS);
+                statNode.setProperty(PROPERTY_TOP_K, (long) valueCounts.size(), Type.LONG);
             }
         }
 
@@ -188,12 +177,9 @@ public class StatisticsEditor implements Editor {
     private <T> List<T> getByFieldName(
             List<TopKValues.ValueCountPair> valueCountPairs,
             Function<TopKValues.ValueCountPair, T> field) {
-        return valueCountPairs.stream().map(field).collect(Collectors.toList());
-    }
-
-    private static void setPrimaryType(NodeBuilder builder) {
-        builder.setProperty(JCR_PRIMARYTYPE,
-                            NodeTypeConstants.NT_OAK_UNSTRUCTURED, Type.NAME);
+        return valueCountPairs.stream()
+                .map(field)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -221,8 +207,7 @@ public class StatisticsEditor implements Editor {
                 Type<?> base = t.getBaseType();
                 int count = after.count();
                 for (int i = 0; i < count; i++) {
-                    updatePropertyStatistics(propertyName,
-                                             after.getValue(base, i));
+                    updatePropertyStatistics(propertyName, after.getValue(base, i));
                 }
             } else {
                 updatePropertyStatistics(propertyName, after.getValue(t));
@@ -231,22 +216,13 @@ public class StatisticsEditor implements Editor {
     }
 
     private void updatePropertyStatistics(String propertyName, Object val) {
-        Optional<PropertyStatistics> ps = Optional.ofNullable(
-                propertyStatistics.get(propertyName));
+        Optional<PropertyStatistics> ps = Optional.ofNullable(propertyStatistics.get(propertyName));
 
         if (!ps.isPresent()) {
             ps = readPropertyStatistics(propertyName);
             if (!ps.isPresent()) {
-                ps = Optional.of(new PropertyStatistics(propertyName, 0,
-                                                        new HyperLogLog(
-                                                                DEFAULT_HLL_SIZE),
-                                                        new CountMinSketch(
-                                                                valueCMSRows,
-                                                                valueCMSCols),
-                                                        new TopKValues(
-                                                                new PriorityQueue<>(),
-                                                                K_ELEMENTS,
-                                                                new HashSet<>())));
+                ps = Optional.of(new PropertyStatistics(propertyName, 0, new HyperLogLog(DEFAULT_HLL_SIZE),
+                        new CountMinSketch(valueCMSRows, valueCMSCols), new TopKValues(new PriorityQueue<>(), K_ELEMENTS, new HashSet<>())));
             }
         }
 
@@ -264,9 +240,8 @@ public class StatisticsEditor implements Editor {
     private String getValueAsString(Object val) {
         String value = val.toString();
         return value.length() <= 128
-               ? value
-               : value.substring(0, 128) + " ... [" +
-                       value.hashCode() + "]";
+                ? value
+                : value.substring(0, 128) + " ... [" + value.hashCode() + "]";
     }
 
     private Optional<PropertyStatistics> readPropertyStatistics(
@@ -292,27 +267,16 @@ public class StatisticsEditor implements Editor {
         }
 
         long c = getLongOrZero(prop.getProperty(EXACT_COUNT));
-        String hpsIndexed = getStringOrEmpty(
-                prop.getProperty(PROPERTY_HLL_NAME));
-        byte[] hllData = HyperLogLog.deserialize(hpsIndexed);
+        String hll = getStringOrEmpty(prop.getProperty(PROPERTY_HLL_NAME));
+        byte[] hllData = HyperLogLog.deserialize(hll);
 
         PropertyState topKValueNames = prop.getProperty(PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = prop.getProperty(PROPERTY_TOP_K_COUNT);
         PropertyState topKNum = prop.getProperty(PROPERTY_TOP_K);
-        TopKValues topKValues = readTopKElements(topKValueNames,
-                                                 topKValueCounts, topKNum);
-        CountMinSketch valueSketch = CountMinSketch.readCMS(prop.getNodeState(),
-                                                            VALUE_SKETCH,
-                                                            VALUE_SKETCH_ROWS,
-                                                            VALUE_SKETCH_COLS,
-                                                            LOG);
+        TopKValues topKValues = readTopKElements(topKValueNames, topKValueCounts, topKNum);
+        CountMinSketch valueSketch = CountMinSketch.readCMS(prop.getNodeState(), VALUE_SKETCH, VALUE_SKETCH_ROWS, VALUE_SKETCH_COLS, LOG);
 
-        return Optional.of(new PropertyStatistics(propertyName, c,
-                                                  new HyperLogLog(
-                                                          DEFAULT_HLL_SIZE,
-                                                          hllData),
-                                                  valueSketch,
-                                                  topKValues));
+        return Optional.of(new PropertyStatistics(propertyName, c, new HyperLogLog(DEFAULT_HLL_SIZE, hllData), valueSketch, topKValues));
     }
 
     private Set<String> toSet(Iterable<String> valueNames) {
@@ -327,20 +291,16 @@ public class StatisticsEditor implements Editor {
                                         PropertyState valueCounts,
                                         PropertyState topK) {
         if (valueNames != null && valueCounts != null) {
-            @NotNull
-            Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
-            @NotNull
-            Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
+            @NotNull Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
+            @NotNull Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
             int k = Math.toIntExact(getLongOrZero(topK));
-            PriorityQueue<TopKValues.ValueCountPair> topElements = TopKValues.deserialize(
-                    valueNamesIter, valueCountsIter, k);
+            PriorityQueue<TopKValues.ValueCountPair> topElements = TopKValues.deserialize(valueNamesIter, valueCountsIter, k);
             Set<String> currValues = toSet(valueNamesIter);
 
             return new TopKValues(topElements, k, currValues);
         }
 
-        return new TopKValues(new PriorityQueue<>(), K_ELEMENTS,
-                              new HashSet<>());
+        return new TopKValues(new PriorityQueue<>(), K_ELEMENTS, new HashSet<>());
     }
 
     @Override
