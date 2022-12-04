@@ -2,19 +2,12 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import java.util.List;
 
-import org.apache.jackrabbit.oak.api.PropertyState;
-import org.apache.jackrabbit.oak.api.Type;
-import org.apache.jackrabbit.oak.spi.state.NodeState;
-import org.slf4j.Logger;
-
-import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
-
 public class PropertyStatistics {
 	private final String name;
-	private long count;
 	private final CountMinSketch valueSketch;
 	private final TopKValues topKValues;
 	private final HyperLogLog hll;
+	private long count;
 	private long valueLengthTotal;
 	private long valueLengthMax;
 	private long valueLengthMin;
