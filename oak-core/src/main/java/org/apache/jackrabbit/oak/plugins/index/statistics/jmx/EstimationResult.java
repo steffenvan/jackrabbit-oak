@@ -15,7 +15,10 @@ public class EstimationResult {
     private final long valueLengthMin;
     private final List<TopKValues.ValueCountPair> topKValuesDescending;
 
-    public  EstimationResult(String propertyName, long count, long cmsCount, long hllCount, long valueLengthTotal, long valueLengthMax, long valueLengthMin, List<TopKValues.ValueCountPair> topKValuesDescending) {
+    public EstimationResult(String propertyName, long count, long cmsCount,
+                            long hllCount, long valueLengthTotal,
+                            long valueLengthMax, long valueLengthMin,
+                            List<TopKValues.ValueCountPair> topKValuesDescending) {
         this.propertyName = propertyName;
         this.count = count;
         this.cmsCount = cmsCount;
@@ -68,17 +71,8 @@ public class EstimationResult {
 
         builder = builder.key("valueLengthMin");
         builder = builder.value(valueLengthMin);
-
-        builder = builder.key("topKValues");
-
-        builder.object();
-        for (TopKValues.ValueCountPair vcp : topKValuesDescending) {
-            builder.key(vcp.getValue());
-            builder.value(vcp.getCount());
-        }
-        builder.endObject();
-
-        builder.endObject();
+        
+        builder = builder.endObject();
 
         return builder.toString();
     }
