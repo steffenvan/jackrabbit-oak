@@ -24,21 +24,41 @@ public class HyperLogLog implements CardinalityEstimator {
         this.m = m;
         this.counters = counters;
         switch (m) {
-        case 32:
-            this.am = 0.697;
-            break;
-        case 64:
-            this.am = 0.709;
-            break;
-        default:
-            this.am = 0.7213 / (1.0 + 1.079 / m);
+            case 32:
+                this.am = 0.697;
+                break;
+            case 64:
+                this.am = 0.709;
+                break;
+            default:
+                this.am = 0.7213 / (1.0 + 1.079 / m);
         }
+    }
+
+    /**
+     * Reads the HyperLogLog.toString() representation that was stored at
+     * oak:index/statistics.
+     *
+     * @param hllCounts a space separated string of bytes
+     * @return a byte[] that contains the HyperLogLog information.
+     */
+    public static byte[] deserialize(String hllCounts) {
+        String[] parts = hllCounts.split("\\s+");
+        List<Byte> longList = Stream.of(parts)
+                                    .map(Byte::valueOf)
+                                    .collect(Collectors.toList());
+        byte[] data = new byte[parts.length];
+        for (int i = 0; i < longList.size(); i++) {
+            data[i] = longList.get(i);
+        }
+        return data;
     }
 
     @Override
     public void add(long hash) {
         int i = (int) (hash & (m - 1));
-        counters[i] = (byte) Math.max(counters[i], 1 + Long.numberOfLeadingZeros(hash));
+        counters[i] = (byte) Math.max(counters[i],
+                                      1 + Long.numberOfLeadingZeros(hash));
     }
 
     @Override
@@ -57,6 +77,12 @@ public class HyperLogLog implements CardinalityEstimator {
         return Math.max(1, est);
     }
 
+    /**
+     * Converts the HyperLogLog information into a string so that we can store
+     * it under the statistics index.
+     *
+     * @return a space separated string of bytes
+     */
     public String serialize() {
         StringBuilder sb = new StringBuilder();
 
@@ -68,16 +94,6 @@ public class HyperLogLog implements CardinalityEstimator {
         }
 
         return sb.toString();
-    }
-
-    public static byte[] deserialize(String hllCounts) {
-        String[] parts = hllCounts.split("\\s+");
-        List<Byte> longList = Stream.of(parts).map(Byte::valueOf).collect(Collectors.toList());
-        byte[] data = new byte[parts.length];
-        for (int i = 0; i < longList.size(); i++) {
-            data[i] = longList.get(i);
-        }
-        return data;
     }
 
     public byte[] getCounters() {
