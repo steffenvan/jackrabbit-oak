@@ -22,9 +22,15 @@ import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getStringOrEmpty;
 
+/**
+ * Represents the class that creates, stores and updates oak:index/statistics.
+ * The editor
+ */
+
 public class StatisticsEditor implements Editor {
 
-    public static final Logger LOG = LoggerFactory.getLogger(StatisticsEditor.class);
+    public static final Logger LOG = LoggerFactory.getLogger(
+            StatisticsEditor.class);
 
     public static final String DATA_NODE_NAME = "index";
     public static final String PROPERTIES = "properties";
@@ -77,12 +83,17 @@ public class StatisticsEditor implements Editor {
         this.propertyStatistics = propertyStatistics;
         if (root.definition.hasChildNode(DATA_NODE_NAME)) {
             NodeBuilder data = root.definition.getChildNode(DATA_NODE_NAME);
-            this.propertyNameCMS = CountMinSketch.readCMS(data.getNodeState(), PROPERTY_CMS_NAME, PROPERTY_CMS_ROWS_NAME, PROPERTY_CMS_COLS_NAME, LOG);
+            this.propertyNameCMS = CountMinSketch.readCMS(data.getNodeState(),
+                                                          PROPERTY_CMS_NAME,
+                                                          PROPERTY_CMS_ROWS_NAME,
+                                                          PROPERTY_CMS_COLS_NAME,
+                                                          LOG);
         }
     }
 
     private static void setPrimaryType(NodeBuilder builder) {
-        builder.setProperty(JCR_PRIMARYTYPE, NodeTypeConstants.NT_OAK_UNSTRUCTURED, Type.NAME);
+        builder.setProperty(JCR_PRIMARYTYPE,
+                            NodeTypeConstants.NT_OAK_UNSTRUCTURED, Type.NAME);
     }
 
     public CountMinSketch getCMS() {
@@ -104,15 +115,15 @@ public class StatisticsEditor implements Editor {
     }
 
     @Override
-    public void enter(NodeState before, NodeState after)
-            throws CommitFailedException {
+    public void enter(NodeState before,
+                      NodeState after) throws CommitFailedException {
         // nothing to do
         recursionLevel++;
     }
 
     @Override
-    public void leave(NodeState before, NodeState after)
-            throws CommitFailedException {
+    public void leave(NodeState before,
+                      NodeState after) throws CommitFailedException {
 
         root.callback.indexUpdate();
 
@@ -135,12 +146,15 @@ public class StatisticsEditor implements Editor {
         data.setProperty(PROPERTY_CMS_ROWS_NAME, propertyNameCMS.getRows());
         data.setProperty(PROPERTY_CMS_COLS_NAME, propertyNameCMS.getCols());
 
-        for (Map.Entry<String, PropertyStatistics> e : propertyStatistics.entrySet()) {
+        for (Map.Entry<String, PropertyStatistics> e :
+                propertyStatistics.entrySet()) {
             NodeBuilder statNode = properties.child(e.getKey());
             PropertyStatistics propStats = e.getValue();
 
             setPrimaryType(statNode);
             statNode.setProperty("count", propStats.getCount());
+            statNode.setProperty("cmsCount", propStats.getCmsCount(
+                    Hash.hash64(propStats.getName().hashCode())));
 
             String hllSerialized = propStats.getHll().serialize();
             // TODO: consider using HyperLogLog4TailCut64 so that we only store
@@ -151,23 +165,34 @@ public class StatisticsEditor implements Editor {
             String[] valueSketchSerialized = valueSketch.serialize();
 
             for (int i = 0; i < valueSketchSerialized.length; i++) {
-                statNode.setProperty(
-                        VALUE_SKETCH + i, valueSketchSerialized[i]);
+                statNode.setProperty(VALUE_SKETCH + i,
+                                     valueSketchSerialized[i]);
             }
 
-            statNode.setProperty(VALUE_SKETCH_ROWS, (long) valueSketch.getRows(), Type.LONG);
-            statNode.setProperty(VALUE_SKETCH_COLS, (long) valueSketch.getCols(), Type.LONG);
-            statNode.setProperty(VALUE_LENGTH_TOTAL, propStats.getValueLengthTotal(), Type.LONG);
-            statNode.setProperty(VALUE_LENGTH_MAX, propStats.getValueLengthMax(), Type.LONG);
-            statNode.setProperty(VALUE_LENGTH_MIN, propStats.getValueLengthMin(), Type.LONG);
+            statNode.setProperty(VALUE_SKETCH_ROWS,
+                                 (long) valueSketch.getRows(), Type.LONG);
+            statNode.setProperty(VALUE_SKETCH_COLS,
+                                 (long) valueSketch.getCols(), Type.LONG);
+            statNode.setProperty(VALUE_LENGTH_TOTAL,
+                                 propStats.getValueLengthTotal(), Type.LONG);
+            statNode.setProperty(VALUE_LENGTH_MAX,
+                                 propStats.getValueLengthMax(), Type.LONG);
+            statNode.setProperty(VALUE_LENGTH_MIN,
+                                 propStats.getValueLengthMin(), Type.LONG);
 
-            List<TopKValues.ValueCountPair> topKElements = propStats.getTopKValuesDescending();
+            List<TopKValues.ValueCountPair> topKElements =
+                    propStats.getTopKValuesDescending();
             if (!topKElements.isEmpty()) {
-                List<String> valueNames = getByFieldName(topKElements, TopKValues.ValueCountPair::getValue);
-                List<Long> valueCounts = getByFieldName(topKElements, TopKValues.ValueCountPair::getCount);
-                statNode.setProperty(PROPERTY_TOP_K_NAME, valueNames, Type.STRINGS);
-                statNode.setProperty(PROPERTY_TOP_K_COUNT, valueCounts, Type.LONGS);
-                statNode.setProperty(PROPERTY_TOP_K, (long) valueCounts.size(), Type.LONG);
+                List<String> valueNames = getByFieldName(topKElements,
+                                                         TopKValues.ValueCountPair::getValue);
+                List<Long> valueCounts = getByFieldName(topKElements,
+                                                        TopKValues.ValueCountPair::getCount);
+                statNode.setProperty(PROPERTY_TOP_K_NAME, valueNames,
+                                     Type.STRINGS);
+                statNode.setProperty(PROPERTY_TOP_K_COUNT, valueCounts,
+                                     Type.LONGS);
+                statNode.setProperty(PROPERTY_TOP_K, (long) valueCounts.size(),
+                                     Type.LONG);
             }
         }
 
@@ -177,20 +202,18 @@ public class StatisticsEditor implements Editor {
     private <T> List<T> getByFieldName(
             List<TopKValues.ValueCountPair> valueCountPairs,
             Function<TopKValues.ValueCountPair, T> field) {
-        return valueCountPairs.stream()
-                .map(field)
-                .collect(Collectors.toList());
+        return valueCountPairs.stream().map(field).collect(Collectors.toList());
     }
 
     @Override
-    public void propertyAdded(PropertyState after)
-            throws CommitFailedException {
+    public void propertyAdded(
+            PropertyState after) throws CommitFailedException {
         propertyHasNewValue(after);
     }
 
     @Override
-    public void propertyChanged(PropertyState before, PropertyState after)
-            throws CommitFailedException {
+    public void propertyChanged(PropertyState before,
+                                PropertyState after) throws CommitFailedException {
         propertyHasNewValue(after);
     }
 
@@ -207,7 +230,8 @@ public class StatisticsEditor implements Editor {
                 Type<?> base = t.getBaseType();
                 int count = after.count();
                 for (int i = 0; i < count; i++) {
-                    updatePropertyStatistics(propertyName, after.getValue(base, i));
+                    updatePropertyStatistics(propertyName,
+                                             after.getValue(base, i));
                 }
             } else {
                 updatePropertyStatistics(propertyName, after.getValue(t));
@@ -216,13 +240,22 @@ public class StatisticsEditor implements Editor {
     }
 
     private void updatePropertyStatistics(String propertyName, Object val) {
-        Optional<PropertyStatistics> ps = Optional.ofNullable(propertyStatistics.get(propertyName));
+        Optional<PropertyStatistics> ps = Optional.ofNullable(
+                propertyStatistics.get(propertyName));
 
         if (!ps.isPresent()) {
             ps = readPropertyStatistics(propertyName);
             if (!ps.isPresent()) {
-                ps = Optional.of(new PropertyStatistics(propertyName, 0, new HyperLogLog(DEFAULT_HLL_SIZE),
-                        new CountMinSketch(valueCMSRows, valueCMSCols), new TopKValues(new PriorityQueue<>(), K_ELEMENTS, new HashSet<>())));
+                ps = Optional.of(new PropertyStatistics(propertyName, 0,
+                                                        new HyperLogLog(
+                                                                DEFAULT_HLL_SIZE),
+                                                        new CountMinSketch(
+                                                                valueCMSRows,
+                                                                valueCMSCols),
+                                                        new TopKValues(
+                                                                new PriorityQueue<>(),
+                                                                K_ELEMENTS,
+                                                                new HashSet<>())));
             }
         }
 
@@ -239,9 +272,9 @@ public class StatisticsEditor implements Editor {
 
     private String getValueAsString(Object val) {
         String value = val.toString();
-        return value.length() <= 128
-                ? value
-                : value.substring(0, 128) + " ... [" + value.hashCode() + "]";
+        return value.length() <= 128 ?
+               value :
+               value.substring(0, 128) + " ... [" + value.hashCode() + "]";
     }
 
     private Optional<PropertyStatistics> readPropertyStatistics(
@@ -273,10 +306,19 @@ public class StatisticsEditor implements Editor {
         PropertyState topKValueNames = prop.getProperty(PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = prop.getProperty(PROPERTY_TOP_K_COUNT);
         PropertyState topKNum = prop.getProperty(PROPERTY_TOP_K);
-        TopKValues topKValues = readTopKElements(topKValueNames, topKValueCounts, topKNum);
-        CountMinSketch valueSketch = CountMinSketch.readCMS(prop.getNodeState(), VALUE_SKETCH, VALUE_SKETCH_ROWS, VALUE_SKETCH_COLS, LOG);
+        TopKValues topKValues = readTopKElements(topKValueNames,
+                                                 topKValueCounts, topKNum);
+        CountMinSketch valueSketch = CountMinSketch.readCMS(prop.getNodeState(),
+                                                            VALUE_SKETCH,
+                                                            VALUE_SKETCH_ROWS,
+                                                            VALUE_SKETCH_COLS,
+                                                            LOG);
 
-        return Optional.of(new PropertyStatistics(propertyName, c, new HyperLogLog(DEFAULT_HLL_SIZE, hllData), valueSketch, topKValues));
+        return Optional.of(new PropertyStatistics(propertyName, c,
+                                                  new HyperLogLog(
+                                                          DEFAULT_HLL_SIZE,
+                                                          hllData), valueSketch,
+                                                  topKValues));
     }
 
     private Set<String> toSet(Iterable<String> valueNames) {
@@ -291,43 +333,47 @@ public class StatisticsEditor implements Editor {
                                         PropertyState valueCounts,
                                         PropertyState topK) {
         if (valueNames != null && valueCounts != null) {
-            @NotNull Iterable<String> valueNamesIter = valueNames.getValue(Type.STRINGS);
-            @NotNull Iterable<Long> valueCountsIter = valueCounts.getValue(Type.LONGS);
+            @NotNull Iterable<String> valueNamesIter = valueNames.getValue(
+                    Type.STRINGS);
+            @NotNull Iterable<Long> valueCountsIter = valueCounts.getValue(
+                    Type.LONGS);
             int k = Math.toIntExact(getLongOrZero(topK));
-            PriorityQueue<TopKValues.ValueCountPair> topElements = TopKValues.deserialize(valueNamesIter, valueCountsIter, k);
+            PriorityQueue<TopKValues.ValueCountPair> topElements =
+                    TopKValues.deserialize(
+                    valueNamesIter, valueCountsIter, k);
             Set<String> currValues = toSet(valueNamesIter);
 
             return new TopKValues(topElements, k, currValues);
         }
 
-        return new TopKValues(new PriorityQueue<>(), K_ELEMENTS, new HashSet<>());
+        return new TopKValues(new PriorityQueue<>(), K_ELEMENTS,
+                              new HashSet<>());
     }
 
     @Override
-    public void propertyDeleted(PropertyState before)
-            throws CommitFailedException {
+    public void propertyDeleted(
+            PropertyState before) throws CommitFailedException {
         // nothing to do
     }
 
     @Override
     @Nullable
     public Editor childNodeChanged(String name, NodeState before,
-                                   NodeState after)
-            throws CommitFailedException {
+                                   NodeState after) throws CommitFailedException {
         return this;
     }
 
     @Override
     @Nullable
-    public Editor childNodeAdded(String name, NodeState after)
-            throws CommitFailedException {
+    public Editor childNodeAdded(String name,
+                                 NodeState after) throws CommitFailedException {
         return this;
     }
 
     @Override
     @Nullable
-    public Editor childNodeDeleted(String name, NodeState before)
-            throws CommitFailedException {
+    public Editor childNodeDeleted(String name,
+                                   NodeState before) throws CommitFailedException {
         return this;
     }
 
