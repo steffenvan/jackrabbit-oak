@@ -3,21 +3,18 @@ package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.commons.jmx.AnnotatedStandardMBean;
-import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
 import org.apache.jackrabbit.oak.plugins.index.statistics.*;
 import org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState;
 import org.apache.jackrabbit.oak.spi.state.ChildNodeEntry;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getStringOrEmpty;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.*;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTIES;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTY_TOP_K_NAME;
 
@@ -47,7 +44,9 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     @Override
     public Optional<EstimationResult> getSinglePropertyEstimation(String name) {
         Optional<NodeState> statisticsDataNode =
-                getStatisticsIndexDataNodeOrNull();
+                getStatisticsIndexDataNodeOrNull(
+                getIndexNode(store));
+
         if (!statisticsDataNode.isPresent()) {
             return Optional.empty();
         }
@@ -76,8 +75,8 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                 StatisticsEditor.PROPERTY_TOP_K_COUNT);
         long topK = getLongOrZero(
                 property.getProperty(StatisticsEditor.PROPERTY_TOP_K));
-        TopKValues topKValues = readTopKElements(topKValueNames,
-                                                 topKValueCounts, (int) topK);
+        TopKValues topKValues = StatisticsEditor.readTopKElements(
+                topKValueNames, topKValueCounts, (int) topK);
 
         CountMinSketch cms = CountMinSketch.readCMS(statisticsDataNode.get(),
                                                     StatisticsEditor.PROPERTY_CMS_NAME,
@@ -93,38 +92,17 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                                      topKValues.get()));
     }
 
-    private Optional<NodeState> getStatisticsIndexDataNodeOrNull() {
-        NodeState indexNode = getIndexNode();
-
-        if (!indexNode.exists()) {
-            return Optional.empty();
-        }
-        NodeState statisticsIndexNode = indexNode.getChildNode(
-                STATISTICS_INDEX_NAME);
-        if (!statisticsIndexNode.exists()) {
-            return Optional.empty();
-        }
-        if (!"statistics".equals(statisticsIndexNode.getString("type"))) {
-            return Optional.empty();
-        }
-        NodeState statisticsDataNode = statisticsIndexNode.getChildNode(
-                StatisticsEditor.DATA_NODE_NAME);
-        if (!statisticsDataNode.exists()) {
-            return Optional.empty();
-        }
-        return Optional.of(statisticsDataNode);
-    }
-
     @Override
     public Optional<List<EstimationResult>> getAllPropertiesEstimation() {
         Optional<NodeState> statisticsDataNode =
-                getStatisticsIndexDataNodeOrNull();
+                getStatisticsIndexDataNodeOrNull(
+                getIndexNode(store));
         return statisticsDataNode.map(this::getEstimationResults);
     }
 
     @Override
     public Set<String> getIndexedPropertyNames() {
-        NodeState indexNode = getIndexNode();
+        NodeState indexNode = StateReader.getIndexNode(store);
         Set<String> indexedPropertyNames = new TreeSet<>();
         for (ChildNodeEntry entry : indexNode.getChildNodeEntries()) {
             NodeState child = entry.getNodeState();
@@ -139,7 +117,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
     @Override
     public Set<String> getPropertyNamesForSingleIndex(String name) {
-        NodeState indexNode = getIndexNode();
+        NodeState indexNode = StateReader.getIndexNode(store);
         NodeState child = indexNode.getChildNode(name);
 
         return getPropertyNamesForIndexNode(child);
@@ -149,10 +127,12 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     public Optional<List<TopKValues.ValueCountPair>> getTopKValuesForProperty(
             String name, int k) {
         Optional<NodeState> statisticsDataNode =
-                getStatisticsIndexDataNodeOrNull();
+                getStatisticsIndexDataNodeOrNull(
+                getIndexNode(store));
         if (!statisticsDataNode.isPresent()) {
             return Optional.empty();
         }
+        
         NodeState properties = statisticsDataNode.get()
                                                  .getChildNode(PROPERTIES);
         if (!properties.hasChildNode(name)) {
@@ -165,8 +145,8 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                 StatisticsEditor.PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = propertyNode.getProperty(
                 StatisticsEditor.PROPERTY_TOP_K_COUNT);
-        TopKValues topKValues = readTopKElements(topKValueNames,
-                                                 topKValueCounts, k);
+        TopKValues topKValues = StatisticsEditor.readTopKElements(
+                topKValueNames, topKValueCounts, k);
 
         return Optional.ofNullable(topKValues.get());
     }
@@ -174,7 +154,8 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     private List<TopKValues.ProportionInfo> getProportionalInfoForSingleProperty(
             String propertyName) {
         Optional<NodeState> statisticsDataNode =
-                getStatisticsIndexDataNodeOrNull();
+                getStatisticsIndexDataNodeOrNull(
+                getIndexNode(store));
         if (!statisticsDataNode.isPresent()) {
             return Collections.emptyList();
         }
@@ -204,8 +185,8 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         int k = Math.toIntExact(getLongOrZero(
                 propertyNode.getProperty(StatisticsEditor.PROPERTY_TOP_K)));
 
-        TopKValues topKValues = readTopKElements(topKValueNames,
-                                                 topKValueCounts, k);
+        TopKValues topKValues = StatisticsEditor.readTopKElements(
+                topKValueNames, topKValueCounts, k);
         List<TopKValues.ValueCountPair> topK = topKValues.get();
         List<TopKValues.ProportionInfo> proportionInfo = new ArrayList<>();
         for (TopKValues.ValueCountPair pi : topK) {
@@ -263,8 +244,9 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                 StatisticsEditor.PROPERTY_TOP_K_COUNT);
         PropertyState topK = propertyNode.getProperty(
                 StatisticsEditor.PROPERTY_TOP_K);
-        TopKValues topKValues = readTopKElements(topKValueNames,
-                                                 topKValueCounts, topK);
+        TopKValues topKValues = StatisticsEditor.readTopKElements(
+                topKValueNames, topKValueCounts,
+                Math.toIntExact(getLongOrZero(topK)));
 
         long hash64 = Hash.hash64(name.hashCode());
 
@@ -292,53 +274,9 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                              .collect(Collectors.toList());
     }
 
-    private TopKValues readTopKElements(PropertyState valueNames,
-                                        PropertyState valueCounts,
-                                        PropertyState topK) {
-        if (valueNames != null && valueCounts != null) {
-            @NotNull Iterable<String> valueNamesIter = valueNames.getValue(
-                    Type.STRINGS);
-            @NotNull Iterable<Long> valueCountsIter = valueCounts.getValue(
-                    Type.LONGS);
-            int k = Math.toIntExact(topK.getValue(Type.LONG));
-            PriorityQueue<TopKValues.ValueCountPair> topValues =
-                    TopKValues.deserialize(
-                    valueNamesIter, valueCountsIter, k);
-            Set<String> currValues = toSet(valueNamesIter);
-            return new TopKValues(topValues, k, currValues);
-        }
-
-        return new TopKValues(new PriorityQueue<>(),
-                              StatisticsEditor.K_ELEMENTS, new HashSet<>());
-    }
-
-    private Set<String> toSet(Iterable<String> valueNamesIter) {
-        Set<String> currValues = new HashSet<>();
-        for (String v : valueNamesIter) {
-            currValues.add(v);
-        }
-        return currValues;
-    }
-
-    private TopKValues readTopKElements(PropertyState valueNames,
-                                        PropertyState valueCounts, int k) {
-        if (valueNames != null && valueCounts != null) {
-            @NotNull Iterable<String> valueNamesIter = valueNames.getValue(
-                    Type.STRINGS);
-            @NotNull Iterable<Long> valueCountsIter = valueCounts.getValue(
-                    Type.LONGS);
-            PriorityQueue<TopKValues.ValueCountPair> topValues =
-                    TopKValues.deserialize(
-                    valueNamesIter, valueCountsIter, k);
-            Set<String> currValues = toSet(valueNamesIter);
-            return new TopKValues(topValues, k, currValues);
-        }
-
-        return new TopKValues(new PriorityQueue<>(), k, new HashSet<>());
-    }
-
-    private List<List<TopKValues.ProportionInfo>> getTopKproportionalInfo() {
-        NodeState indexNode = getIndexNode();
+    @Override
+    public List<List<TopKValues.ProportionInfo>> getProportionInfoForIndexedProperties() {
+        NodeState indexNode = StateReader.getIndexNode(store);
         List<List<TopKValues.ProportionInfo>> propInfo = new ArrayList<>();
 
         for (ChildNodeEntry child : indexNode.getChildNode(PROPERTIES)
@@ -346,13 +284,6 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
             propInfo.add(getProportionalInfoForSingleProperty(child.getName()));
         }
         return propInfo;
-    }
-
-    @Override
-    public List<List<TopKValues.ProportionInfo>> getProportionInfoForIndexedProperties() {
-        List<List<TopKValues.ProportionInfo>> topInfos =
-                getTopKproportionalInfo();
-        return topInfos;
     }
 
     /**
@@ -400,11 +331,6 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     private boolean isValidPropertyName(String propertyName) {
         return !propertyName.startsWith("function") && !propertyName.equals(
                 "jcr:path") && !propertyName.equals("rep:facet");
-    }
-
-    private NodeState getIndexNode() {
-        return store.getRoot()
-                    .getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
     }
 
     private boolean isRegExp(NodeState nodeState) {
