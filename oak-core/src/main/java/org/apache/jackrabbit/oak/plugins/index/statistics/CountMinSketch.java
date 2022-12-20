@@ -11,7 +11,7 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getLongOrZero;
 
 public class CountMinSketch implements FrequencyCounter {
     private static final Random RANDOM = new Random();
