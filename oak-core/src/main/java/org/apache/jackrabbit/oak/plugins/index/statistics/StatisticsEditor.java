@@ -14,13 +14,15 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getLongOrZero;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.PropertyReader.getStringOrEmpty;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getLongOrZero;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getStringOrEmpty;
 
 /**
  * Represents the class that creates, stores and updates oak:index/statistics.
@@ -94,6 +96,22 @@ public class StatisticsEditor implements Editor {
     private static void setPrimaryType(NodeBuilder builder) {
         builder.setProperty(JCR_PRIMARYTYPE,
                             NodeTypeConstants.NT_OAK_UNSTRUCTURED, Type.NAME);
+    }
+
+    public static TopKValues readTopKElements(PropertyState valueNames,
+                                              PropertyState valueCounts,
+                                              int k) {
+        if (valueNames != null && valueCounts != null) {
+            @NotNull Iterable<String> valueNamesIter = valueNames.getValue(
+                    Type.STRINGS);
+            @NotNull Iterable<Long> valueCountsIter = valueCounts.getValue(
+                    Type.LONGS);
+
+            return TopKValues.createFromIndex(valueNamesIter, valueCountsIter,
+                                              k);
+        }
+
+        return new TopKValues(k);
     }
 
     public CountMinSketch getCMS() {
@@ -253,9 +271,7 @@ public class StatisticsEditor implements Editor {
                                                                 valueCMSRows,
                                                                 valueCMSCols),
                                                         new TopKValues(
-                                                                new PriorityQueue<>(),
-                                                                K_ELEMENTS,
-                                                                new HashSet<>())));
+                                                                K_ELEMENTS)));
             }
         }
 
@@ -264,9 +280,10 @@ public class StatisticsEditor implements Editor {
 
         ps.ifPresent(p -> {
             propertyStatistics.put(propertyName, p);
-            p.updateValueCounts(value, hash64);
+            p.updateValueCount(value, hash64);
             p.updateHll(hash64);
-            p.inc(1);
+            p.updateValueLength(value);
+            p.incCount(1);
         });
     }
 
@@ -307,7 +324,9 @@ public class StatisticsEditor implements Editor {
         PropertyState topKValueCounts = prop.getProperty(PROPERTY_TOP_K_COUNT);
         PropertyState topKNum = prop.getProperty(PROPERTY_TOP_K);
         TopKValues topKValues = readTopKElements(topKValueNames,
-                                                 topKValueCounts, topKNum);
+                                                 topKValueCounts,
+                                                 Math.toIntExact(getLongOrZero(
+                                                         topKNum)));
         CountMinSketch valueSketch = CountMinSketch.readCMS(prop.getNodeState(),
                                                             VALUE_SKETCH,
                                                             VALUE_SKETCH_ROWS,
@@ -319,35 +338,6 @@ public class StatisticsEditor implements Editor {
                                                           DEFAULT_HLL_SIZE,
                                                           hllData), valueSketch,
                                                   topKValues));
-    }
-
-    private Set<String> toSet(Iterable<String> valueNames) {
-        Set<String> set = new HashSet<>();
-        for (String v : valueNames) {
-            set.add(v);
-        }
-        return set;
-    }
-
-    private TopKValues readTopKElements(PropertyState valueNames,
-                                        PropertyState valueCounts,
-                                        PropertyState topK) {
-        if (valueNames != null && valueCounts != null) {
-            @NotNull Iterable<String> valueNamesIter = valueNames.getValue(
-                    Type.STRINGS);
-            @NotNull Iterable<Long> valueCountsIter = valueCounts.getValue(
-                    Type.LONGS);
-            int k = Math.toIntExact(getLongOrZero(topK));
-            PriorityQueue<TopKValues.ValueCountPair> topElements =
-                    TopKValues.deserialize(
-                    valueNamesIter, valueCountsIter, k);
-            Set<String> currValues = toSet(valueNamesIter);
-
-            return new TopKValues(topElements, k, currValues);
-        }
-
-        return new TopKValues(new PriorityQueue<>(), K_ELEMENTS,
-                              new HashSet<>());
     }
 
     @Override

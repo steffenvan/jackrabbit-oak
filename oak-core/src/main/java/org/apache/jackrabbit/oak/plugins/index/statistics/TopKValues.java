@@ -2,216 +2,242 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.PriorityQueue;
-import java.util.Set;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Comparator;
+import java.util.*;
 
+/**
+ * Contains and implements the logic to maintain the top-K values of a property.
+ * Internally, it uses a priority queue that is updated each time a value is
+ * added or modified. In fact, whenever an existing value is updated, we check
+ * if it should be added to the priority queue.
+ */
 public class TopKValues {
-	private final int k;
-	private final PriorityQueue<ValueCountPair> topValues;
-	private final Set<String> currValues;
+    private final int k;
+    private final PriorityQueue<ValueCountPair> topValues;
+    private final Set<String> currValues;
 
-	public static class ProportionInfo {
-		private final String value;
-		private final long count;
-		private final long totalValueCount;
+    private TopKValues(PriorityQueue<ValueCountPair> topValues, int k,
+                       Set<String> currValues) {
+        this.topValues = topValues;
+        this.k = k;
+        this.currValues = currValues;
+    }
 
-		public ProportionInfo(String value, long count, long totalValueCount) {
-			this.value = value;
-			this.count = count;
-			this.totalValueCount = totalValueCount;
-		}
+    public TopKValues(int count) {
+        this(new PriorityQueue<>(), count, new HashSet<>());
+    }
 
-		String percentage() {
-			String percent = String.valueOf(
-					Math.round(((double) count / totalValueCount) * 100));
-			return percent + "%";
-		}
+    /**
+     * Static factory for reading and creating the top K values object for a
+     * property that is already stored at the statistics index.
+     *
+     * @param values the top K values
+     * @param counts the top K counts
+     * @param k      the actual top K number
+     * @return the top K values object
+     */
+    public static TopKValues createFromIndex(Iterable<String> values,
+                                             Iterable<Long> counts, int k) {
+        Iterator<String> valuesIter = values.iterator();
+        Iterator<Long> countsIter = counts.iterator();
+        Set<String> currValues = new HashSet<>();
+        PriorityQueue<ValueCountPair> topKValues = new PriorityQueue<>();
 
-		public long getCount() {
-			return count;
-		}
+        while (valuesIter.hasNext() && countsIter.hasNext()) {
+            String value = valuesIter.next();
+            Long count = countsIter.next();
+            ValueCountPair curr = new ValueCountPair(value, count);
+            if (currValues.contains(value)) {
+                currValues.remove(value);
+                topKValues.remove(curr);
+            }
 
-		@Override
-		public String toString() {
-			JsopBuilder builder = new JsopBuilder();
-			builder.object();
+            if (topKValues.size() >= k) {
+                ValueCountPair top = topKValues.peek();
+                assert top != null;
+                if (count >= top.count) {
+                    ValueCountPair old = topKValues.poll();
+                    currValues.remove(old.value);
+                }
+            }
 
-			builder.key("value");
-			builder.value(value);
+            if (topKValues.size() < k) {
+                topKValues.offer(curr);
+                currValues.add(value);
+            }
+        }
 
-			builder.key("count");
-			builder.value(count);
+        return new TopKValues(topKValues, k, currValues);
+    }
 
-			builder.key("totalCount");
-			builder.value(totalValueCount);
+    public PriorityQueue<ValueCountPair> getTopK() {
+        return new PriorityQueue<>(topValues);
+    }
 
-			builder.key("percentage");
-			builder.value(percentage());
+    public void clear() {
+        this.topValues.clear();
+    }
 
-			builder.endObject();
+    void update(String value, long count) {
+        ValueCountPair curr = new ValueCountPair(value, count);
 
-			return builder.toString();
-		}
-	}
-	public static class ValueCountPair implements Comparable<ValueCountPair> {
-		String value;
-		long count;
+        // if the current value is already in the priority queue it will have
+        // an outdated count, which is why we remove it and re-insert it
+        if (currValues.contains(value)) {
+            currValues.remove(value);
+            topValues.remove(curr);
+        }
 
-		public ValueCountPair(String value, Long count) {
-			this.value = value;
-			this.count = count;
-		}
+        if (topValues.size() >= k) {
+            ValueCountPair top = topValues.peek();
+            assert top != null;
+            if (count >= top.count) {
+                ValueCountPair old = topValues.poll();
+                currValues.remove(old.value);
+            }
+        }
 
-		@Override
-		public int compareTo(ValueCountPair o) {
-			return Long.compare(count, o.count);
-		}
+        if (topValues.size() < k) {
+            topValues.offer(curr);
+            currValues.add(value);
+        }
+    }
 
-		public Long getCount() {
-			return count;
-		}
+    /**
+     * Gets the top k values for a property. The information is returned as a
+     * ValueCountPair
+     * TODO: This function currently pops the whole priority queue. This
+     * should be optimized such that we only do it for min(k, pq.size()).
+     *
+     * @return the top k values
+     */
+    public List<ValueCountPair> get() {
+        List<ValueCountPair> valueCountPairs = new ArrayList<>();
+        topValues.forEach(
+                x -> valueCountPairs.add(new ValueCountPair(x.value, x.count)));
+        valueCountPairs.sort(
+                Comparator.comparing(ValueCountPair::getCount).reversed());
 
-		public String getValue() {
-			return value;
-		}
-		@Override
-		public int hashCode() {
-		    return value.hashCode();
-		}
+        // the number of values can sometimes be less than k. E.g. boolean
+        // values
+        int topElementIdx = Math.min(valueCountPairs.size(), k);
 
-		@Override
-		public boolean equals(Object o) {
-			if (this == o) {
-				return true;
-			}
-			if (o == null) {
-				return false;
-			}
-			if (this.getClass() != o.getClass()) {
-				return false;
-			}
-			ValueCountPair other = (ValueCountPair) o;
+        return valueCountPairs.subList(0, topElementIdx);
+    }
 
-			return this.value.equals(other.value);
-		}
-	}
+    public int size() {
+        return this.topValues.size();
+    }
 
-	public TopKValues(PriorityQueue<ValueCountPair> topValues, int k, Set<String> currValues) {
-		this.topValues = topValues;
-		this.k = k;
-		this.currValues = currValues;
-	}
+    public Set<String> getValues() {
+        Set<String> names = new HashSet<>();
+        for (ValueCountPair topValue : topValues) {
+            names.add(topValue.value);
+        }
 
-	public PriorityQueue<ValueCountPair> getTopK() {
-		return new PriorityQueue<>(topValues);
-	}
+        return names;
+    }
 
-	public void clear() {
-		this.topValues.clear();
-	}
+    @Override
+    public String toString() {
+        List<ValueCountPair> topKSortedValues = get();
+        JsopBuilder builder = new JsopBuilder();
+        builder.object();
 
-	void update(Object val, long count) {
-		String value = val.toString();
-		ValueCountPair curr = new ValueCountPair(value, count);
-		if (currValues.contains(value)) {
-			currValues.remove(value);
-			// if the current value is already in the priority queue it will have an outdated count, which is why we
-			// remove it and re-insert it with the   d count
-			topValues.remove(curr);
-		}
+        for (ValueCountPair vcp : topKSortedValues) {
+            builder.key(vcp.getValue());
+            builder.value(vcp.getCount());
+        }
 
-		if (topValues.size() >= k) {
-			ValueCountPair top = topValues.peek();
-			assert top != null;
-			if (count >= top.count) {
-				ValueCountPair old = topValues.poll();
-				currValues.remove(old.value);
-			}
-		}
+        builder.endObject();
 
-		if (topValues.size() < k) {
-			topValues.offer(curr);
-			currValues.add(value);
-		}
-	}
+        return builder.toString();
+    }
 
-	// TODO: This function currently pops the whole priority queue. This should
-	// be optimized such that we only do it for min(k, pq.size()).
-	public List<ValueCountPair> get() {
-		List<ValueCountPair> valueCountPairs = new ArrayList<>();
-		topValues.forEach(x -> valueCountPairs.add(new ValueCountPair(x.value, x.count)));
-		valueCountPairs.sort(Comparator.comparing(ValueCountPair::getCount).reversed());
+    public static class ProportionInfo {
+        private final String value;
+        private final long count;
+        private final long totalValueCount;
 
-		// the number of property values can sometimes be less than k
-		int topElementIdx = Math.min(valueCountPairs.size(), k);
+        public ProportionInfo(String value, long count, long totalValueCount) {
+            this.value = value;
+            this.count = count;
+            this.totalValueCount = totalValueCount;
+        }
 
-		return valueCountPairs.subList(0, topElementIdx);
-	}
+        String percentage() {
+            String percent = String.valueOf(
+                    Math.round(((double) count / totalValueCount) * 100));
+            return percent + "%";
+        }
 
-	public int size() {
-		return this.topValues.size();
-	}
+        public long getCount() {
+            return count;
+        }
 
-	public static PriorityQueue<ValueCountPair> deserialize(Iterable<String> names, Iterable<Long> counts, int k) {
-		Iterator<String> valuesIter = names.iterator();
-		Iterator<Long> countsIter = counts.iterator();
-		Set<String> currValues = new HashSet<>();
-		PriorityQueue<ValueCountPair> topKValues = new PriorityQueue<>();
+        @Override
+        public String toString() {
+            JsopBuilder builder = new JsopBuilder();
+            builder.object();
 
-		while (valuesIter.hasNext() && countsIter.hasNext()) {
-			String value = valuesIter.next();
-			Long count = countsIter.next();
-			ValueCountPair curr = new ValueCountPair(value, count);
-			if (currValues.contains(value)) {
-				currValues.remove(value);
-				topKValues.remove(curr);
-			}
+            builder.key("value");
+            builder.value(value);
 
-			if (topKValues.size() >= k) {
-				ValueCountPair top = topKValues.peek();
-				assert top != null;
-				if (count >= top.count) {
-					ValueCountPair old = topKValues.poll();
-					currValues.remove(old.value);
-				}
-			}
+            builder.key("count");
+            builder.value(count);
 
-			if (topKValues.size() < k) {
-				topKValues.offer(curr);
-				currValues.add(value);
-			}
-		}
+            builder.key("totalCount");
+            builder.value(totalValueCount);
 
-		return topKValues;
-	}
+            builder.key("percentage");
+            builder.value(percentage());
 
-	public Set<String> getNames() {
-		Set<String> names = new HashSet<>();
-		for (ValueCountPair topValue : topValues) {
-			names.add(topValue.value);
-		}
+            builder.endObject();
 
-		return names;
-	}
+            return builder.toString();
+        }
+    }
 
-	@Override
-	public String toString() {
-		List<ValueCountPair> topKSortedValues = get();
-		JsopBuilder builder = new JsopBuilder();
-		builder.object();
+    public static class ValueCountPair implements Comparable<ValueCountPair> {
+        String value;
+        long count;
 
-		for (ValueCountPair vcp : topKSortedValues) {
-			builder.key(vcp.getValue());
-			builder.value(vcp.getCount());
-		}
+        public ValueCountPair(String value, Long count) {
+            this.value = value;
+            this.count = count;
+        }
 
-		builder.endObject();
+        @Override
+        public int compareTo(ValueCountPair o) {
+            return Long.compare(count, o.count);
+        }
 
-		return builder.toString();
-	}
+        public Long getCount() {
+            return count;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        @Override
+        public int hashCode() {
+            return value.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null) {
+                return false;
+            }
+            if (this.getClass() != o.getClass()) {
+                return false;
+            }
+            ValueCountPair other = (ValueCountPair) o;
+
+            return this.value.equals(other.value);
+        }
+    }
 }
