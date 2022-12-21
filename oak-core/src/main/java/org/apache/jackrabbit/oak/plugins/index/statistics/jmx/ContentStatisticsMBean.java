@@ -31,7 +31,7 @@ public interface ContentStatisticsMBean {
      * information as valid JSON.
      */
     @Description("Returns the statistical information of all properties in " + "the repository. This includes the estimated count, cardinality, " + "average value length, top K most frequent values and more.")
-    Optional<List<EstimationResult>> getAllPropertiesEstimation();
+    List<EstimationResult> getAllPropertiesEstimation();
 
     /**
      * This is added in addition to the list of EstimationResults, as we might
@@ -72,7 +72,7 @@ public interface ContentStatisticsMBean {
      */
     @Description("Returns the top K values for the specified property, where "
             + "k = min(k, 5) (as k = 5 is the repository's default value).")
-    Optional<List<TopKValues.ValueCountPair>> getTopKValuesForProperty(
+    List<TopKValues.ValueCountPair> getTopKValuesForProperty(
             String propertyName, int k);
 
     @Description("Returns all the top k values for the indexed properties")
@@ -87,9 +87,7 @@ public interface ContentStatisticsMBean {
      * @return a list of the top k values and what fraction they make out of the
      * estimated count of that property.
      */
-    @Description("Returns the percentage each of the top K values make out " +
-            "of" + " all the values of the specified property and what " +
-            "percentage " + "all the top K values make out of the property.")
+    @Description("Returns the percentage each of the top K values make out " + "of" + " all the values of the specified property and what " + "percentage " + "all the top K values make out of the property.")
     List<TopKValues.ProportionInfo> getValueProportionInfoForSingleProperty(
             String propertyName);
 }

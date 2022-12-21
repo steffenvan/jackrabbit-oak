@@ -107,11 +107,26 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     }
 
     @Override
-    public Optional<List<EstimationResult>> getAllPropertiesEstimation() {
-        Optional<NodeState> statisticsDataNode =
-                getStatisticsIndexDataNodeOrNull(
+    public List<EstimationResult> getAllPropertiesEstimation() {
+        Optional<NodeState> indexNode = getStatisticsIndexDataNodeOrNull(
                 getIndexNode(store));
-        return statisticsDataNode.map(this::getEstimationResults);
+        List<EstimationResult> propertyCounts = new ArrayList<>();
+
+        indexNode.ifPresent(node -> {
+            for (ChildNodeEntry child : node.getChildNode(PROPERTIES)
+                                            .getChildNodeEntries()) {
+                propertyCounts.add(
+                        getSingleEstimationResult(child.getName(), node));
+            }
+        });
+
+        return propertyCounts.stream()
+                             .sorted(Comparator.comparing(
+                                                       EstimationResult::getCount)
+                                               .reversed()
+                                               .thenComparingLong(
+                                                       EstimationResult::getHllCount))
+                             .collect(Collectors.toList());
     }
 
     @Override
@@ -138,19 +153,20 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     }
 
     @Override
-    public Optional<List<TopKValues.ValueCountPair>> getTopKValuesForProperty(
-            String name, int k) {
+    public List<TopKValues.ValueCountPair> getTopKValuesForProperty(String name,
+                                                                    int k) {
         Optional<NodeState> statisticsDataNode =
                 getStatisticsIndexDataNodeOrNull(
                 getIndexNode(store));
+
         if (!statisticsDataNode.isPresent()) {
-            return Optional.empty();
+            return Collections.emptyList();
         }
 
         NodeState properties = statisticsDataNode.get()
                                                  .getChildNode(PROPERTIES);
         if (!properties.hasChildNode(name)) {
-            return Optional.empty();
+            return Collections.emptyList();
         }
 
         NodeState propertyNode = properties.getChildNode(name);
@@ -162,7 +178,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         TopKValues topKValues = StatisticsEditor.readTopKElements(
                 topKValueNames, topKValueCounts, k);
 
-        return Optional.ofNullable(topKValues.get());
+        return topKValues.get();
     }
 
     private List<TopKValues.ProportionInfo> getProportionalInfoForSingleProperty(
@@ -170,9 +186,11 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         Optional<NodeState> statisticsDataNode =
                 getStatisticsIndexDataNodeOrNull(
                 getIndexNode(store));
+
         if (!statisticsDataNode.isPresent()) {
             return Collections.emptyList();
         }
+
         NodeState statisticsProperties = statisticsDataNode.get()
                                                            .getChildNode(
                                                                    PROPERTIES);
@@ -270,24 +288,6 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                                     topKValues.get());
     }
 
-    private List<EstimationResult> getEstimationResults(NodeState indexNode) {
-        List<EstimationResult> propertyCounts = new ArrayList<>();
-
-        for (ChildNodeEntry child : indexNode.getChildNode(PROPERTIES)
-                                             .getChildNodeEntries()) {
-            propertyCounts.add(
-                    getSingleEstimationResult(child.getName(), indexNode));
-        }
-
-        return propertyCounts.stream()
-                             .sorted(Comparator.comparing(
-                                                       EstimationResult::getCount)
-                                               .reversed()
-                                               .thenComparingLong(
-                                                       EstimationResult::getHllCount))
-                             .collect(Collectors.toList());
-    }
-
     @Override
     public List<List<TopKValues.ProportionInfo>> getProportionInfoForIndexedProperties() {
         NodeState indexNode = StateReader.getIndexNode(store);
@@ -304,7 +304,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
      * To find the property names of an index, we traverse the index node's
      * children until we find nodes that are "valid". A property node is
      * considered valid, if it fulfills certain criteria. E.g. it has a "name"
-     * property that does not start with "function". See:
+     * property that does not start with "function". For further details, see:
      * <p>
      * {@link #hasValidPropertyNameNode(NodeState)} and
      * {@link #isValidPropertyName(String)}
