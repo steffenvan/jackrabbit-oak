@@ -56,9 +56,18 @@ public class TopKValues {
         return topKValues;
     }
 
+    /**
+     * Inserts (and perhaps updates) the TopKValues object with a new value and
+     * its associated count. If the value we want to insert already exists in
+     * the object, it will very likely have an outdated count which is why we
+     * need to remove and re-insert it.
+     *
+     * @param t    the topKValues object that is updated
+     * @param k    size of k
+     * @param curr the ValueCountPair that we want to insert into the object
+     */
     private static void updateValue(TopKValues t, int k, ValueCountPair curr) {
-        // if the current value is already in the priority queue it will have
-        // an outdated count, which is why we remove it and re-insert it
+
         if (t.contains(curr.getValue())) {
             t.remove(curr);
         }
