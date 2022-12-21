@@ -2,7 +2,13 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Set;
 
 /**
  * Contains and implements the logic to maintain the top-K values of a property.
@@ -39,67 +45,71 @@ public class TopKValues {
                                              Iterable<Long> counts, int k) {
         Iterator<String> valuesIter = values.iterator();
         Iterator<Long> countsIter = counts.iterator();
-        Set<String> currValues = new HashSet<>();
-        PriorityQueue<ValueCountPair> topKValues = new PriorityQueue<>();
+        TopKValues topKValues = new TopKValues(k);
 
         while (valuesIter.hasNext() && countsIter.hasNext()) {
             String value = valuesIter.next();
             Long count = countsIter.next();
-            ValueCountPair curr = new ValueCountPair(value, count);
-            if (currValues.contains(value)) {
-                currValues.remove(value);
-                topKValues.remove(curr);
-            }
+            updateValue(topKValues, k, new ValueCountPair(value, count));
+        }
 
-            if (topKValues.size() >= k) {
-                ValueCountPair top = topKValues.peek();
-                assert top != null;
-                if (count >= top.count) {
-                    ValueCountPair old = topKValues.poll();
-                    currValues.remove(old.value);
-                }
-            }
+        return topKValues;
+    }
 
-            if (topKValues.size() < k) {
-                topKValues.offer(curr);
-                currValues.add(value);
+    private static void updateValue(TopKValues t, int k, ValueCountPair curr) {
+        // if the current value is already in the priority queue it will have
+        // an outdated count, which is why we remove it and re-insert it
+        if (t.contains(curr.getValue())) {
+            t.remove(curr);
+        }
+
+        if (t.size() >= k) {
+            ValueCountPair top = t.peek();
+            assert top != null;
+            if (curr.getCount() >= top.getCount()) {
+                t.remove(curr);
             }
         }
 
-        return new TopKValues(topKValues, k, currValues);
-    }
-
-    public PriorityQueue<ValueCountPair> getTopK() {
-        return new PriorityQueue<>(topValues);
-    }
-
-    public void clear() {
-        this.topValues.clear();
+        if (t.size() < k) {
+            t.insert(curr);
+        }
     }
 
     void update(String value, long count) {
-        ValueCountPair curr = new ValueCountPair(value, count);
+        updateValue(this, k, new ValueCountPair(value, count));
+    }
 
-        // if the current value is already in the priority queue it will have
-        // an outdated count, which is why we remove it and re-insert it
-        if (currValues.contains(value)) {
-            currValues.remove(value);
-            topValues.remove(curr);
-        }
+    public boolean contains(String value) {
+        return currValues.contains(value);
+    }
 
-        if (topValues.size() >= k) {
-            ValueCountPair top = topValues.peek();
-            assert top != null;
-            if (count >= top.count) {
-                ValueCountPair old = topValues.poll();
-                currValues.remove(old.value);
-            }
-        }
+    private void remove(ValueCountPair vcp) {
+        topValues.remove(vcp);
+        currValues.remove(vcp.getValue());
+    }
 
-        if (topValues.size() < k) {
-            topValues.offer(curr);
-            currValues.add(value);
+    private void insert(ValueCountPair vcp) {
+        topValues.offer(vcp);
+        currValues.add(vcp.getValue());
+    }
+
+    /**
+     * Retrieves the head of the priority queue if it's non-empty. Otherwise, it
+     * returns null as done in Java's STL.
+     *
+     * @return the head of the priority queue or null if it's empty
+     */
+    private ValueCountPair peek() {
+        if (topValues.isEmpty()) {
+            return null;
         }
+        return topValues.peek();
+    }
+
+    void clear() {
+        topValues.clear();
+        currValues.clear();
     }
 
     /**
