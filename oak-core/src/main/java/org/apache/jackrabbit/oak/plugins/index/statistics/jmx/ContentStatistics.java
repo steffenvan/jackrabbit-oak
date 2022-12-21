@@ -389,21 +389,4 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
         return EmptyNodeState.MISSING_NODE;
     }
-
-    private int getNumCols(Iterable<? extends PropertyState> properties) {
-        return properties.iterator().hasNext() ?
-               CountMinSketch.deserialize(properties.iterator()
-                                                    .next()
-                                                    .getValue(
-                                                            Type.STRING)).length :
-               0;
-    }
-
-    private int getNumRows(Iterable<? extends PropertyState> properties) {
-        int count = 0;
-        for (PropertyState ps : properties) {
-            count++;
-        }
-        return count;
-    }
 }
