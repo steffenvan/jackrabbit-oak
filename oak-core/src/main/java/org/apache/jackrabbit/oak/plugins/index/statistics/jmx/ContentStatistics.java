@@ -3,7 +3,12 @@ package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.commons.jmx.AnnotatedStandardMBean;
-import org.apache.jackrabbit.oak.plugins.index.statistics.*;
+import org.apache.jackrabbit.oak.plugins.index.statistics.CountMinSketch;
+import org.apache.jackrabbit.oak.plugins.index.statistics.Hash;
+import org.apache.jackrabbit.oak.plugins.index.statistics.HyperLogLog;
+import org.apache.jackrabbit.oak.plugins.index.statistics.StateReader;
+import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
+import org.apache.jackrabbit.oak.plugins.index.statistics.TopKValues;
 import org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState;
 import org.apache.jackrabbit.oak.spi.state.ChildNodeEntry;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
@@ -11,10 +16,19 @@ import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.*;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getIndexNode;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getLongOrZero;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getStatisticsIndexDataNodeOrNull;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getStringOrEmpty;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTIES;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTY_TOP_K_NAME;
 
@@ -132,7 +146,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         if (!statisticsDataNode.isPresent()) {
             return Optional.empty();
         }
-        
+
         NodeState properties = statisticsDataNode.get()
                                                  .getChildNode(PROPERTIES);
         if (!properties.hasChildNode(name)) {
