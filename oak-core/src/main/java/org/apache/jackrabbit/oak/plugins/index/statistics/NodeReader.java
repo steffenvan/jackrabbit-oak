@@ -9,14 +9,10 @@ import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import java.util.Optional;
 
 /**
- * Represents a group of utility functions that makes it easier to read
- * PropertyStates and NodeStates.
+ * Represents a set of utility functions that makes it easier to read the
+ * oak:index node and the statistics index node.
  */
-public class StateReader {
-    public static Long getLongOrZero(PropertyState ps) {
-        return ps == null ? Long.valueOf(0) : ps.getValue(Type.LONG);
-    }
-
+public class NodeReader {
     public static String getStringOrEmpty(PropertyState ps) {
         return ps == null ? "" : ps.getValue(Type.STRING);
     }
@@ -45,7 +41,7 @@ public class StateReader {
         if (!statisticsDataNode.exists()) {
             return Optional.empty();
         }
-        
+
         return Optional.of(statisticsDataNode);
     }
 }
