@@ -26,7 +26,6 @@ import org.apache.jackrabbit.oak.spi.state.NodeStateUtils;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.apache.jackrabbit.oak.spi.whiteboard.Whiteboard;
 import org.apache.jackrabbit.oak.spi.whiteboard.WhiteboardUtils;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -63,14 +62,7 @@ public class StatisticsIndexTest {
         qe = root.getQueryEngine();
     }
 
-    @After
-    public void after() throws Exception {
-        session = null;
-        root = null;
-        qe = null;
-    }
-
-    private void addProperties() throws CommitFailedException {
+    private void addNodes() throws CommitFailedException {
         // add some properties so that the statistics node gets updated
         for (int i = 0; i < 5; i++) {
             Tree t = root.getTree("/").addChild("foo" + i);
@@ -96,6 +88,14 @@ public class StatisticsIndexTest {
     }
 
     @Test
+    public void testCorruptedIndex() throws CommitFailedException {
+        addNodes();
+        Tree t = getIndexNodeTree();
+
+        //        builder.setProperty();
+    }
+
+    @Test
     public void testLongValueName() throws CommitFailedException {
         addPropertyWithLongName();
         Tree t = getIndexNodeTree();
@@ -113,7 +113,7 @@ public class StatisticsIndexTest {
         // no properties added so it should be empty
         assertFalse(statNode.isPresent());
 
-        addProperties();
+        addNodes();
         indexNode = NodeReader.getIndexNode(nodeStore);
         statNode = NodeReader.getStatisticsIndexDataNodeOrNull(indexNode);
 
@@ -145,7 +145,7 @@ public class StatisticsIndexTest {
 
     @Test
     public void testPropertyCMSIsStored() throws Exception {
-        addProperties();
+        addNodes();
 
 
         Tree t = getIndexNodeTree();

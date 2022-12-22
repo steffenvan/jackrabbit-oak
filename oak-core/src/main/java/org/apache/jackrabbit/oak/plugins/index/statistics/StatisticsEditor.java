@@ -114,22 +114,11 @@ public class StatisticsEditor implements Editor {
         return new TopKValues(k);
     }
 
-    public CountMinSketch getCMS() {
-        return this.propertyNameCMS;
-    }
-
-    private SipHash getHash() {
-        if (hash != null) {
-            return hash;
-        }
-        SipHash h;
-        if (parent == null) {
-            h = new SipHash(root.seed);
-        } else {
-            h = new SipHash(parent.getHash(), name.hashCode());
-        }
-        this.hash = h;
-        return h;
+    static String getValueAsString(Object val) {
+        String value = val.toString();
+        return value.length() <= 128 ?
+               value :
+               value.substring(0, 128) + " ... [" + value.hashCode() + "]";
     }
 
     @Override
@@ -261,9 +250,9 @@ public class StatisticsEditor implements Editor {
         Optional<PropertyStatistics> ps = Optional.ofNullable(
                 propertyStatistics.get(propertyName));
 
-        if (!ps.isPresent()) {
+        if (ps.isEmpty()) {
             ps = readPropertyStatistics(propertyName);
-            if (!ps.isPresent()) {
+            if (ps.isEmpty()) {
                 ps = Optional.of(new PropertyStatistics(propertyName, 0,
                                                         new HyperLogLog(
                                                                 DEFAULT_HLL_SIZE),
@@ -285,13 +274,6 @@ public class StatisticsEditor implements Editor {
             p.updateValueLength(value);
             p.incCount(1);
         });
-    }
-
-    private String getValueAsString(Object val) {
-        String value = val.toString();
-        return value.length() <= 128 ?
-               value :
-               value.substring(0, 128) + " ... [" + value.hashCode() + "]";
     }
 
     private Optional<PropertyStatistics> readPropertyStatistics(
@@ -326,7 +308,7 @@ public class StatisticsEditor implements Editor {
         int k = Math.toIntExact(getLong(prop.getNodeState(), PROPERTY_TOP_K));
         TopKValues topKValues = readTopKElements(topKValueNames,
                                                  topKValueCounts, k);
-        
+
         CountMinSketch valueSketch = CountMinSketch.readCMS(prop.getNodeState(),
                                                             VALUE_SKETCH,
                                                             VALUE_SKETCH_ROWS,
