@@ -31,7 +31,6 @@ import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getS
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTIES;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTY_TOP_K_NAME;
 import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
-import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getString;
 
 public class ContentStatistics extends AnnotatedStandardMBean implements ContentStatisticsMBean {
 
@@ -62,7 +61,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                 getStatisticsIndexDataNodeOrNull(
                 getIndexNode(store));
 
-        if (!statisticsDataNode.isPresent()) {
+        if (statisticsDataNode.isEmpty()) {
             return Optional.empty();
         }
 
@@ -78,10 +77,8 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                                       StatisticsEditor.VALUE_LENGTH_MIN);
 
 
-        String storedHll = Optional.ofNullable(
-                                           getString(property,
-                                                     StatisticsEditor.PROPERTY_HLL_NAME))
-                                   .orElse("");
+        String storedHll = getStringOrEmpty(property,
+                                            StatisticsEditor.PROPERTY_HLL_NAME);
         byte[] hllData = HyperLogLog.deserialize(storedHll);
         HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
 
@@ -160,7 +157,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                 getStatisticsIndexDataNodeOrNull(
                 getIndexNode(store));
 
-        if (!statisticsDataNode.isPresent()) {
+        if (statisticsDataNode.isEmpty()) {
             return Collections.emptyList();
         }
 
@@ -188,7 +185,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                 getStatisticsIndexDataNodeOrNull(
                 getIndexNode(store));
 
-        if (!statisticsDataNode.isPresent()) {
+        if (statisticsDataNode.isEmpty()) {
             return Collections.emptyList();
         }
 
@@ -265,10 +262,8 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                                                     StatisticsEditor.PROPERTY_CMS_COLS_NAME,
                                                     CS_LOG);
 
-        String storedHll = Optional.ofNullable(
-                                           getString(propertyNode,
-                                                     StatisticsEditor.PROPERTY_HLL_NAME))
-                                   .orElse("");
+        String storedHll = getStringOrEmpty(propertyNode,
+                                            StatisticsEditor.PROPERTY_HLL_NAME);
         byte[] hllData = HyperLogLog.deserialize(storedHll);
         HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
 
@@ -327,13 +322,11 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                         // we assume that this (property) node either has a
                         // property named: "name" or "properties"
                         if (childNode.hasProperty(PROPERTY_NAME)) {
-                            propertyName = parse(Optional.ofNullable(
-                                                                 getString(childNode, PROPERTY_NAME))
-                                                         .orElse(""));
+                            propertyName = parse(
+                                    getStringOrEmpty(childNode, PROPERTY_NAME));
                         } else {
-                            propertyName = parse(Optional.ofNullable(
-                                                                 getString(childNode, PROPERTIES))
-                                                         .orElse(""));
+                            propertyName = parse(
+                                    getStringOrEmpty(childNode, PROPERTIES));
                         }
                         if (isValidPropertyName(propertyName)) {
                             propStates.add(propertyName);
@@ -364,10 +357,11 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
     private boolean hasVirtualProperty(NodeState nodeState) {
         return nodeState.hasProperty(
-                PROPERTY_NAME) && VIRTUAL_PROPERTY_NAME.equals(getStringOrEmpty(
-                nodeState.getProperty(PROPERTY_NAME))) || nodeState.hasProperty(
+                PROPERTY_NAME) && VIRTUAL_PROPERTY_NAME.equals(
+                getStringOrEmpty(nodeState,
+                                 PROPERTY_NAME)) || nodeState.hasProperty(
                 PROPERTIES) && VIRTUAL_PROPERTY_NAME.equals(
-                getStringOrEmpty(nodeState.getProperty(PROPERTIES)));
+                getStringOrEmpty(nodeState, PROPERTIES));
     }
 
     /*
