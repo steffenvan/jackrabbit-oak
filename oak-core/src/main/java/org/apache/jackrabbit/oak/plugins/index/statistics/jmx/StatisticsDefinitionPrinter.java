@@ -5,7 +5,7 @@ import org.apache.felix.inventory.InventoryPrinter;
 import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
 import org.apache.jackrabbit.oak.json.Base64BlobSerializer;
 import org.apache.jackrabbit.oak.json.JsonSerializer;
-import org.apache.jackrabbit.oak.plugins.index.statistics.StateReader;
+import org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
@@ -15,10 +15,10 @@ import org.osgi.service.component.annotations.Reference;
 import java.io.PrintWriter;
 import java.util.Optional;
 
-@Component(service = InventoryPrinter.class, property = {"felix.inventory" +
-        ".printer.name=oak-statistics",
-        "felix.inventory.printer" + ".title" + "=Statistics Index",
-        "felix" + ".inventory.printer.format=JSON"})
+@Component(service = InventoryPrinter.class,
+           property = {"felix.inventory" + ".printer.name=oak-statistics",
+                   "felix.inventory.printer" + ".title" + "=Statistics Index"
+                   , "felix" + ".inventory.printer.format=JSON"})
 public class StatisticsDefinitionPrinter implements InventoryPrinter {
 
     @Reference
@@ -41,8 +41,8 @@ public class StatisticsDefinitionPrinter implements InventoryPrinter {
 
             // oak:index/statistics/index
             Optional<NodeState> statisticsNode =
-                    StateReader.getStatisticsIndexDataNodeOrNull(
-                    StateReader.getIndexNode(nodeStore));
+                    NodeReader.getStatisticsIndexDataNodeOrNull(
+                    NodeReader.getIndexNode(nodeStore));
 
             statisticsNode.ifPresent(node -> {
                 if (node.hasChildNode(StatisticsEditor.PROPERTIES)) {

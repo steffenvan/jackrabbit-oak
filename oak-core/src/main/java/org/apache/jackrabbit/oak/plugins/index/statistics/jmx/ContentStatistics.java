@@ -6,7 +6,7 @@ import org.apache.jackrabbit.oak.commons.jmx.AnnotatedStandardMBean;
 import org.apache.jackrabbit.oak.plugins.index.statistics.CountMinSketch;
 import org.apache.jackrabbit.oak.plugins.index.statistics.Hash;
 import org.apache.jackrabbit.oak.plugins.index.statistics.HyperLogLog;
-import org.apache.jackrabbit.oak.plugins.index.statistics.StateReader;
+import org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
 import org.apache.jackrabbit.oak.plugins.index.statistics.TopKValues;
 import org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState;
@@ -25,12 +25,13 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getIndexNode;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getLongOrZero;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getStatisticsIndexDataNodeOrNull;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getStringOrEmpty;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getIndexNode;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getStatisticsIndexDataNodeOrNull;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getStringOrEmpty;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTIES;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTY_TOP_K_NAME;
+import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
+import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getString;
 
 public class ContentStatistics extends AnnotatedStandardMBean implements ContentStatisticsMBean {
 
@@ -68,18 +69,19 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         NodeState property = statisticsDataNode.get()
                                                .getChildNode(PROPERTIES)
                                                .getChildNode(name);
-        long count = getLongOrZero(
-                property.getProperty(StatisticsEditor.EXACT_COUNT));
-        long valueLengthTotal = getLongOrZero(
-                property.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
-        long valueLengthMax = getLongOrZero(
-                property.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
-        long valueLengthMin = getLongOrZero(
-                property.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
+        long count = getLong(property, StatisticsEditor.EXACT_COUNT);
+        long valueLengthTotal = getLong(property,
+                                        StatisticsEditor.VALUE_LENGTH_TOTAL);
+        long valueLengthMax = getLong(property,
+                                      StatisticsEditor.VALUE_LENGTH_MAX);
+        long valueLengthMin = getLong(property,
+                                      StatisticsEditor.VALUE_LENGTH_MIN);
 
 
-        String storedHll = getStringOrEmpty(
-                property.getProperty(StatisticsEditor.PROPERTY_HLL_NAME));
+        String storedHll = Optional.ofNullable(
+                                           getString(property,
+                                                     StatisticsEditor.PROPERTY_HLL_NAME))
+                                   .orElse("");
         byte[] hllData = HyperLogLog.deserialize(storedHll);
         HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
 
@@ -87,8 +89,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                 PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = property.getProperty(
                 StatisticsEditor.PROPERTY_TOP_K_COUNT);
-        long topK = getLongOrZero(
-                property.getProperty(StatisticsEditor.PROPERTY_TOP_K));
+        long topK = getLong(property, StatisticsEditor.PROPERTY_TOP_K);
         TopKValues topKValues = StatisticsEditor.readTopKElements(
                 topKValueNames, topKValueCounts, (int) topK);
 
@@ -131,7 +132,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
     @Override
     public Set<String> getIndexedPropertyNames() {
-        NodeState indexNode = StateReader.getIndexNode(store);
+        NodeState indexNode = NodeReader.getIndexNode(store);
         Set<String> indexedPropertyNames = new TreeSet<>();
         for (ChildNodeEntry entry : indexNode.getChildNodeEntries()) {
             NodeState child = entry.getNodeState();
@@ -146,7 +147,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
     @Override
     public Set<String> getPropertyNamesForSingleIndex(String name) {
-        NodeState indexNode = StateReader.getIndexNode(store);
+        NodeState indexNode = NodeReader.getIndexNode(store);
         NodeState child = indexNode.getChildNode(name);
 
         return getPropertyNamesForIndexNode(child);
@@ -214,8 +215,8 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                 StatisticsEditor.PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = propertyNode.getProperty(
                 StatisticsEditor.PROPERTY_TOP_K_COUNT);
-        int k = Math.toIntExact(getLongOrZero(
-                propertyNode.getProperty(StatisticsEditor.PROPERTY_TOP_K)));
+        int k = Math.toIntExact(
+                getLong(propertyNode, StatisticsEditor.PROPERTY_TOP_K));
 
         TopKValues topKValues = StatisticsEditor.readTopKElements(
                 topKValueNames, topKValueCounts, k);
@@ -249,15 +250,14 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         NodeState properties = indexNode.getChildNode(PROPERTIES);
         NodeState propertyNode = properties.getChildNode(name);
 
-        long count = getLongOrZero(
-                propertyNode.getProperty(StatisticsEditor.EXACT_COUNT));
+        long count = getLong(propertyNode, StatisticsEditor.EXACT_COUNT);
 
-        long valueLengthTotal = getLongOrZero(
-                propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_TOTAL));
-        long valueLengthMax = getLongOrZero(
-                propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_MAX));
-        long valueLengthMin = getLongOrZero(
-                propertyNode.getProperty(StatisticsEditor.VALUE_LENGTH_MIN));
+        long valueLengthTotal = getLong(propertyNode,
+                                        StatisticsEditor.VALUE_LENGTH_TOTAL);
+        long valueLengthMax = getLong(propertyNode,
+                                      StatisticsEditor.VALUE_LENGTH_MAX);
+        long valueLengthMin = getLong(propertyNode,
+                                      StatisticsEditor.VALUE_LENGTH_MIN);
 
         CountMinSketch cms = CountMinSketch.readCMS(indexNode,
                                                     StatisticsEditor.PROPERTY_CMS_NAME,
@@ -265,8 +265,10 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                                                     StatisticsEditor.PROPERTY_CMS_COLS_NAME,
                                                     CS_LOG);
 
-        String storedHll = getStringOrEmpty(
-                propertyNode.getProperty(StatisticsEditor.PROPERTY_HLL_NAME));
+        String storedHll = Optional.ofNullable(
+                                           getString(propertyNode,
+                                                     StatisticsEditor.PROPERTY_HLL_NAME))
+                                   .orElse("");
         byte[] hllData = HyperLogLog.deserialize(storedHll);
         HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
 
@@ -274,11 +276,10 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                 PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = propertyNode.getProperty(
                 StatisticsEditor.PROPERTY_TOP_K_COUNT);
-        PropertyState topK = propertyNode.getProperty(
-                StatisticsEditor.PROPERTY_TOP_K);
         TopKValues topKValues = StatisticsEditor.readTopKElements(
-                topKValueNames, topKValueCounts,
-                Math.toIntExact(getLongOrZero(topK)));
+                topKValueNames, topKValueCounts, Math.toIntExact(
+                        getLong(propertyNode,
+                                StatisticsEditor.PROPERTY_TOP_K)));
 
         long hash64 = Hash.hash64(name.hashCode());
 
@@ -290,7 +291,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
     @Override
     public List<List<TopKValues.ProportionInfo>> getProportionInfoForIndexedProperties() {
-        NodeState indexNode = StateReader.getIndexNode(store);
+        NodeState indexNode = NodeReader.getIndexNode(store);
         List<List<TopKValues.ProportionInfo>> propInfo = new ArrayList<>();
 
         for (ChildNodeEntry child : indexNode.getChildNode(PROPERTIES)
@@ -326,11 +327,13 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                         // we assume that this (property) node either has a
                         // property named: "name" or "properties"
                         if (childNode.hasProperty(PROPERTY_NAME)) {
-                            propertyName = parse(getStringOrEmpty(
-                                    childNode.getProperty(PROPERTY_NAME)));
+                            propertyName = parse(Optional.ofNullable(
+                                                                 getString(childNode, PROPERTY_NAME))
+                                                         .orElse(""));
                         } else {
-                            propertyName = parse(getStringOrEmpty(
-                                    childNode.getProperty(PROPERTIES)));
+                            propertyName = parse(Optional.ofNullable(
+                                                                 getString(childNode, PROPERTIES))
+                                                         .orElse(""));
                         }
                         if (isValidPropertyName(propertyName)) {
                             propStates.add(propertyName);

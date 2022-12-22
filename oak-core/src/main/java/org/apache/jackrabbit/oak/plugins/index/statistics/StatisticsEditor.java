@@ -21,8 +21,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getLongOrZero;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getStringOrEmpty;
+import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
+import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getString;
 
 /**
  * Represents the class that creates, stores and updates oak:index/statistics.
@@ -316,17 +316,17 @@ public class StatisticsEditor implements Editor {
             return Optional.empty();
         }
 
-        long c = getLongOrZero(prop.getProperty(EXACT_COUNT));
-        String hll = getStringOrEmpty(prop.getProperty(PROPERTY_HLL_NAME));
+        long c = getLong(prop.getNodeState(), EXACT_COUNT);
+        String hll = Optional.ofNullable(
+                getString(prop.getNodeState(), PROPERTY_HLL_NAME)).orElse("");
         byte[] hllData = HyperLogLog.deserialize(hll);
 
         PropertyState topKValueNames = prop.getProperty(PROPERTY_TOP_K_NAME);
         PropertyState topKValueCounts = prop.getProperty(PROPERTY_TOP_K_COUNT);
-        PropertyState topKNum = prop.getProperty(PROPERTY_TOP_K);
+        int k = Math.toIntExact(getLong(prop.getNodeState(), PROPERTY_TOP_K));
         TopKValues topKValues = readTopKElements(topKValueNames,
-                                                 topKValueCounts,
-                                                 Math.toIntExact(getLongOrZero(
-                                                         topKNum)));
+                                                 topKValueCounts, k);
+        
         CountMinSketch valueSketch = CountMinSketch.readCMS(prop.getNodeState(),
                                                             VALUE_SKETCH,
                                                             VALUE_SKETCH_ROWS,
