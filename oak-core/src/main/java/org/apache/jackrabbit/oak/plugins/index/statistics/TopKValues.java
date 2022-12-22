@@ -110,9 +110,6 @@ public class TopKValues {
      * @return the head of the priority queue or null if it's empty
      */
     private ValueCountPair peek() {
-        if (topValues.isEmpty()) {
-            return null;
-        }
         return topValues.peek();
     }
 
@@ -202,7 +199,7 @@ public class TopKValues {
             builder.value(value);
 
             builder.key("count");
-            builder.value(count);
+            builder.value(getCount());
 
             builder.key("totalCount");
             builder.value(totalValueCount);
@@ -217,8 +214,8 @@ public class TopKValues {
     }
 
     public static class ValueCountPair implements Comparable<ValueCountPair> {
-        String value;
-        long count;
+        private final String value;
+        private final long count;
 
         public ValueCountPair(String value, Long count) {
             this.value = value;
