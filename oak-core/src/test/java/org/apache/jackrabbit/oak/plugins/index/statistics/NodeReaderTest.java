@@ -65,18 +65,10 @@ public class NodeReaderTest {
         indexNode = NodeReader.getIndexNode(store);
         statNode = NodeReader.getStatisticsIndexDataNodeOrNull(indexNode);
 
-        // after adding some properties the statistics index should exist
-        assertTrue(statNode.isPresent());
-
-        // not ideal, but because of the previous assertion we know this
-        // the Optional isn't empty
-        NodeState statIndex = statNode.get();
-
         // since we added some properties and re-read the index it should now
         // exist. We don't verify that the properties actually exist as that
         // logic belongs to the StatisticsEditor
-        assertTrue(statIndex.exists());
-
+        assertTrue(statNode.isPresent() && statNode.get().exists());
     }
 
     private void addProperties() throws CommitFailedException {
