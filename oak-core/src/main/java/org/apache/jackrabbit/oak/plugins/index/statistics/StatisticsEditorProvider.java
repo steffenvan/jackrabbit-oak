@@ -18,10 +18,6 @@
  */
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
 import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
@@ -35,25 +31,38 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.osgi.service.component.annotations.Component;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 @Component(service = IndexEditorProvider.class)
 public class StatisticsEditorProvider implements IndexEditorProvider {
 
-	public static final String TYPE = "statistics";
+    public static final String TYPE = "statistics";
 
-	public static final String RESOLUTION = "resolution";
+    public static final String RESOLUTION = "resolution";
 
-	public static final String SEED = "seed";
+    public static final String SEED = "seed";
 
-    public static final String COMMON_PROPERTY_THRESHOLD = "commonPropertyThreshold";
+    public static final String COMMON_PROPERTY_THRESHOLD =
+            "commonPropertyThreshold";
     public static final String PROPERTY_CMS_ROWS = "propertyCMSRows";
     public static final String PROPERTY_CMS_COLS = "propertyCMSCols";
     public static final String VALUE_CMS_ROWS = "valueCMSRows";
     public static final String VALUE_CMS_COLS = "valueCMSCols";
 
+    public static final int DEFAULT_PROPERTY_CMS_ROWS = 7;
+    public static final int DEFAULT_PROPERTY_CMS_COLS = 64;
+
+    public static final int DEFAULT_VALUE_CMS_ROWS = 5;
+    public static final int DEFAULT_VALUE_CMS_COLS = 32;
+
+
     @Override
     @Nullable
     public Editor getIndexEditor(@NotNull String type,
-                                 @NotNull NodeBuilder definition, @NotNull NodeState root,
+                                 @NotNull NodeBuilder definition,
+                                 @NotNull NodeState root,
                                  @NotNull IndexUpdateCallback callback) throws CommitFailedException {
         if (!TYPE.equals(type)) {
             return null;
@@ -72,7 +81,8 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
         } else {
             seed = 0;
             if (NodeCounter.COUNT_HASH) {
-                // create a random number (that way we can also check if this feature is enabled)
+                // create a random number (that way we can also check if this
+                // feature is enabled)
                 seed = UUID.randomUUID().getMostSignificantBits();
                 definition.setProperty(SEED, seed);
             }
@@ -87,8 +97,8 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
 
         PropertyState rows = definition.getProperty(PROPERTY_CMS_ROWS);
         PropertyState cols = definition.getProperty(PROPERTY_CMS_COLS);
-        int propertyCMSRows = 7;
-        int propertyCMSCols = 64;
+        int propertyCMSRows = DEFAULT_PROPERTY_CMS_ROWS;
+        int propertyCMSCols = DEFAULT_PROPERTY_CMS_COLS;
         if (rows != null && cols != null) {
             propertyCMSRows = rows.getValue(Type.LONG).intValue();
             propertyCMSCols = cols.getValue(Type.LONG).intValue();
@@ -96,18 +106,23 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
 
         rows = definition.getProperty(VALUE_CMS_ROWS);
         cols = definition.getProperty(VALUE_CMS_COLS);
-        int valueCMSRows = 5;
-        int valueCMSCols = 32;
+
+        int valueCMSRows = DEFAULT_VALUE_CMS_ROWS;
+        int valueCMSCols = DEFAULT_VALUE_CMS_COLS;
         if (rows != null && cols != null) {
-            propertyCMSRows = rows.getValue(Type.LONG).intValue();
-            propertyCMSCols = cols.getValue(Type.LONG).intValue();
+            valueCMSRows = rows.getValue(Type.LONG).intValue();
+            valueCMSCols = cols.getValue(Type.LONG).intValue();
         }
 
-        StatisticsEditor.StatisticsRoot rootData = new StatisticsEditor.StatisticsRoot(
-                resolution, seed, definition, root, callback, commonPropertyThreshold);
-        CountMinSketch cms = new CountMinSketch(propertyCMSRows, propertyCMSCols);
+        StatisticsEditor.StatisticsRoot rootData =
+                new StatisticsEditor.StatisticsRoot(
+                resolution, seed, definition, root, callback,
+                commonPropertyThreshold);
+        CountMinSketch cms = new CountMinSketch(propertyCMSRows,
+                                                propertyCMSCols);
         Map<String, PropertyStatistics> propertyStatistics = new HashMap<>();
 
-        return new StatisticsEditor(rootData, cms, propertyStatistics, valueCMSRows, valueCMSCols);
+        return new StatisticsEditor(rootData, cms, propertyStatistics,
+                                    valueCMSRows, valueCMSCols);
     }
 }
