@@ -11,14 +11,13 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StateReader.getLongOrZero;
+import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
 
 public class CountMinSketch implements FrequencyCounter {
     private static final Random RANDOM = new Random();
     private final long[][] items;
     private final int rows;
     private final int cols;
-    private long count;
 
     public CountMinSketch(int rows, int cols) {
         this(rows, cols, new long[rows][cols]);
@@ -64,11 +63,10 @@ public class CountMinSketch implements FrequencyCounter {
     public static CountMinSketch readCMS(NodeState node, String cmsName,
                                          String rowName, String colName,
                                          Logger logger) {
-        PropertyState rowsProp = node.getProperty(rowName);
-        PropertyState colsProp = node.getProperty(colName);
 
-        int rows = getLongOrZero(rowsProp).intValue();
-        int cols = getLongOrZero(colsProp).intValue();
+        int rows = Math.toIntExact(getLong(node, rowName));
+        int cols = Math.toIntExact(getLong(node, colName));
+
         long[][] data = new long[rows][cols];
 
         for (int i = 0; i < rows; i++) {
@@ -102,7 +100,6 @@ public class CountMinSketch implements FrequencyCounter {
             int col = (int) (h2 & (cols - 1));
             items[i][col]++;
         }
-        count++;
     }
 
     @Override
