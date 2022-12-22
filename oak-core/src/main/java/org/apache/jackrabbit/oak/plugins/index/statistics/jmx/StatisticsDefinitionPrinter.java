@@ -15,6 +15,10 @@ import org.osgi.service.component.annotations.Reference;
 import java.io.PrintWriter;
 import java.util.Optional;
 
+/**
+ * Helper class to convert the statistics index into well-formatted JSON. Used
+ * when we want to print out the index with oak-run.
+ */
 @Component(service = InventoryPrinter.class,
            property = {"felix.inventory" + ".printer.name=oak-statistics",
                    "felix.inventory.printer" + ".title" + "=Statistics Index"
