@@ -26,13 +26,10 @@ import java.util.Optional;
 public class StatisticsDefinitionPrinter implements InventoryPrinter {
 
     @Reference
-    private NodeStore nodeStore;
-    private String filter = "{\"properties\":[\"*\", \"-:childOrder\"]," +
-            "\"nodes\":[\"*\", \"-:*\"]}";
+    private final NodeStore nodeStore;
+    private String filter =
+            "{\" \":[\"*\", \"-:childOrder\"]," + "\"nodes" + "\":[\"*\", " + "\"-:*\"]}";
 
-    public StatisticsDefinitionPrinter() {
-
-    }
 
     public StatisticsDefinitionPrinter(NodeStore nodeStore) {
         this.nodeStore = nodeStore;
@@ -46,7 +43,7 @@ public class StatisticsDefinitionPrinter implements InventoryPrinter {
             // oak:index/statistics/index
             Optional<NodeState> statisticsNode =
                     NodeReader.getStatisticsIndexDataNodeOrNull(
-                    NodeReader.getIndexNode(nodeStore));
+                    NodeReader.getIndexRoot(nodeStore));
 
             statisticsNode.ifPresent(node -> {
                 if (node.hasChildNode(StatisticsEditor.PROPERTIES)) {
@@ -55,10 +52,6 @@ public class StatisticsDefinitionPrinter implements InventoryPrinter {
                 }
             });
         }
-    }
-
-    public void setFilter(String filter) {
-        this.filter = filter;
     }
 
     private JsonSerializer createSerializer(JsopBuilder json) {

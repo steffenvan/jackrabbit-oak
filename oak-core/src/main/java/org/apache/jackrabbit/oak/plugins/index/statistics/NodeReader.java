@@ -17,7 +17,7 @@ public class NodeReader {
         return Optional.ofNullable(getString(nodeState, name)).orElse("");
     }
 
-    public static NodeState getIndexNode(NodeStore store) {
+    public static NodeState getIndexRoot(NodeStore store) {
         return store.getRoot()
                     .getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
     }

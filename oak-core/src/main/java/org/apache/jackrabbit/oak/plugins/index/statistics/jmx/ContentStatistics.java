@@ -25,7 +25,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getIndexNode;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getIndexRoot;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getStatisticsIndexDataNodeOrNull;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getStringOrEmpty;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTIES;
@@ -59,7 +59,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     public Optional<EstimationResult> getSinglePropertyEstimation(String name) {
         Optional<NodeState> statisticsDataNode =
                 getStatisticsIndexDataNodeOrNull(
-                getIndexNode(store));
+                getIndexRoot(store));
 
         if (statisticsDataNode.isEmpty()) {
             return Optional.empty();
@@ -107,7 +107,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     @Override
     public List<EstimationResult> getAllPropertiesEstimation() {
         Optional<NodeState> indexNode = getStatisticsIndexDataNodeOrNull(
-                getIndexNode(store));
+                getIndexRoot(store));
         List<EstimationResult> propertyCounts = new ArrayList<>();
 
         indexNode.ifPresent(node -> {
@@ -129,7 +129,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
     @Override
     public Set<String> getIndexedPropertyNames() {
-        NodeState indexNode = NodeReader.getIndexNode(store);
+        NodeState indexNode = NodeReader.getIndexRoot(store);
         Set<String> indexedPropertyNames = new TreeSet<>();
         for (ChildNodeEntry entry : indexNode.getChildNodeEntries()) {
             NodeState child = entry.getNodeState();
@@ -144,7 +144,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
     @Override
     public Set<String> getPropertyNamesForSingleIndex(String name) {
-        NodeState indexNode = NodeReader.getIndexNode(store);
+        NodeState indexNode = NodeReader.getIndexRoot(store);
         NodeState child = indexNode.getChildNode(name);
 
         return getPropertyNamesForIndexNode(child);
@@ -155,7 +155,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
                                                                     int k) {
         Optional<NodeState> statisticsDataNode =
                 getStatisticsIndexDataNodeOrNull(
-                getIndexNode(store));
+                getIndexRoot(store));
 
         if (statisticsDataNode.isEmpty()) {
             return Collections.emptyList();
@@ -183,7 +183,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
             String propertyName) {
         Optional<NodeState> statisticsDataNode =
                 getStatisticsIndexDataNodeOrNull(
-                getIndexNode(store));
+                getIndexRoot(store));
 
         if (statisticsDataNode.isEmpty()) {
             return Collections.emptyList();
@@ -286,7 +286,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
     @Override
     public List<List<TopKValues.ProportionInfo>> getProportionInfoForIndexedProperties() {
-        NodeState indexNode = NodeReader.getIndexNode(store);
+        NodeState indexNode = NodeReader.getIndexRoot(store);
         List<List<TopKValues.ProportionInfo>> propInfo = new ArrayList<>();
 
         for (ChildNodeEntry child : indexNode.getChildNode(PROPERTIES)
