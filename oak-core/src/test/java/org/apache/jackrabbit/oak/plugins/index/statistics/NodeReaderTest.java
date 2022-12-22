@@ -2,6 +2,7 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
+import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.junit.Before;
@@ -63,7 +64,48 @@ public class NodeReaderTest {
     }
 
     @Test
-    public void testSetStatNodeWithInvalidIndex() {
+    public void testGetStatNodeWithNonExistentIndexRoot() {
+        NodeState indexRoot = NodeReader.getIndexRoot(store);
+        NodeState empty = indexRoot.getChildNode("DOES NOT EXIST");
+        Optional<NodeState> stat = NodeReader.getStatisticsIndexDataNodeOrNull(
+                empty);
 
+        assertTrue(stat.isEmpty());
     }
+
+    @Test
+    public void testShouldBeEmptyBecauseEmptyStatIndex() {
+        NodeBuilder builder = store.getRoot().builder();
+        NodeBuilder indexRootBuilder = builder.getChildNode("oak:index");
+
+        // remove the oak:index/statistics node
+        indexRootBuilder.getChildNode(StatisticsEditorProvider.TYPE).remove();
+
+        NodeState indexRoot = indexRootBuilder.getNodeState();
+
+        Optional<NodeState> result =
+                NodeReader.getStatisticsIndexDataNodeOrNull(
+                indexRoot);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    public void testShouldBeEmptyBecauseInvalidStatType() {
+        NodeBuilder builder = store.getRoot().builder();
+        NodeBuilder indexRootBuilder = builder.getChildNode("oak:index");
+
+        // set the type property to a value that is not "statistics"
+        indexRootBuilder.getChildNode(StatisticsEditorProvider.TYPE)
+                        .setProperty("type", "INVALID");
+        NodeState indexRoot = indexRootBuilder.getNodeState();
+
+        Optional<NodeState> result =
+                NodeReader.getStatisticsIndexDataNodeOrNull(
+                indexRoot);
+
+        assertTrue(result.isEmpty());
+    }
+
+
 }
