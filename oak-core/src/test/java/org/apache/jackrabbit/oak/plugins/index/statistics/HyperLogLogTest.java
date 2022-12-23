@@ -8,6 +8,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class HyperLogLogTest {
@@ -77,11 +79,7 @@ public class HyperLogLogTest {
         int biasP = (int) (100 * (sum / testCount / runs / size) - 100);
         if (debug) {
             System.out.println(
-                    "size " + size + " relStdDev% " + (int) relStdDevP +
-                            " range " + min + ".." + max + " testCount " +
-                            testCount + " biasFirst% " + biasFirstP +
-                            " bias% " + biasP + " avg " +
-                            (sum / testCount / runs) + " time " + nsPerItem);
+                    "size " + size + " relStdDev% " + (int) relStdDevP + " " + "range " + min + ".." + max + " testCount " + testCount + " biasFirst% " + biasFirstP + " bias% " + biasP + " avg " + (sum / testCount / runs) + " time " + nsPerItem);
         }
         // we try to reduce the relStdDevP, make sure there are no large values
         // (trying to reduce sumSquareError directly
@@ -89,17 +87,16 @@ public class HyperLogLogTest {
         return Math.pow(relStdDevP, exponent);
     }
 
-    @Test
-    public void testAdd() {
-        int m = 64;
+    private double getErrorWithSize(int m) {
 
         HyperLogLog hll = new HyperLogLog(m);
+
         int numData = 10000;
         int[] randomData = getRandomData(numData);
 
         Set<Integer> actualUniqueElements = Arrays.stream(randomData)
-                .boxed()
-                .collect(Collectors.toSet());
+                                                  .boxed()
+                                                  .collect(Collectors.toSet());
 
         for (int num : randomData) {
             long hash = Hash.hash64(num);
@@ -108,19 +105,48 @@ public class HyperLogLogTest {
 
         int actual = actualUniqueElements.size();
         long estimated = hll.estimate();
-        double maxError = 2 * (1.3 / Math.sqrt(m));
+
         double error = Math.abs(((double) estimated / actual) - 1);
-        // System.out.println(error);
-        Assert.assertTrue(
-                "maxerror: " + maxError + " got: " + error, error <= maxError);
-        // System.out.println(actualUniqueElements.size());
-        // System.out.println(hll.estimate());
+
+        return error;
+    }
+
+    @Test
+    public void testAddWithSize64() {
+        int[] sizes = {16, 32, 64, 128};
+        for (int m : sizes) {
+            double maxError = 2 * (1.3 / Math.sqrt(m));
+            double error = getErrorWithSize(m);
+            Assert.assertTrue("maxError: " + maxError + " got: " + error,
+                              error <= maxError);
+        }
+    }
+
+    @Test
+    public void testIllegalArgumentExceptionSmall() {
+        // should throw an exception as 8 is too small
+        int m = 8;
+        Throwable exception = assertThrows(IllegalArgumentException.class,
+                                           () -> new HyperLogLog(m));
+
+        assertEquals("The size must be >= 16. The provided size is: " + m,
+                     exception.getMessage());
+    }
+
+    @Test
+    public void testIllegalArgumentExceptionNotPowerOfTwo() {
+        int m = 19;
+        Throwable exception = assertThrows(IllegalArgumentException.class,
+                                           () -> new HyperLogLog(m));
+
+        assertEquals(
+                "The size must be a power of 2. The provided size is: " + m,
+                exception.getMessage());
     }
 
     @Test
     public void testSerialization() {
         int m = 64;
-
         HyperLogLog hll = new HyperLogLog(m);
         int numData = 10;
         int[] randomData = getRandomData(numData);
@@ -133,7 +159,6 @@ public class HyperLogLogTest {
         String s = hll.serialize();
         byte[] actual = HyperLogLog.deserialize(s);
         Assert.assertArrayEquals(expected, actual);
-
     }
 
     private int[] getRandomData(int numData) {
@@ -152,9 +177,20 @@ public class HyperLogLogTest {
         int testCount = 50;
         double avg = Math.sqrt(averageOverRange(30_000, testCount, false, 2));
         double min = 15, max = 16;
-        // System.out.println(type + " expected " + min + ".." + max + " got " + avg);
-        assertTrue(
-                "expected " + min + ".." + max + " got " + avg,
-                min < avg && avg < max);
+        // System.out.println(type + " expected " + min + ".." + max + " got
+        // " + avg);
+        assertTrue("expected " + min + ".." + max + " got " + avg,
+                   min < avg && avg < max);
+    }
+
+    @Test
+    public void testDifferentInputSize() {
+        HyperLogLog hll = new HyperLogLog(16);
+        int numData = 10;
+        int[] randomData = getRandomData(numData);
+        for (int num : randomData) {
+            long hash = Hash.hash64(num);
+            hll.add(hash);
+        }
     }
 }

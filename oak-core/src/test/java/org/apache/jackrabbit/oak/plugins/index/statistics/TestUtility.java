@@ -16,6 +16,7 @@ import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
 import org.apache.jackrabbit.oak.spi.commit.EmptyHook;
 import org.apache.jackrabbit.oak.spi.security.OpenSecurityProvider;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
+import org.apache.jackrabbit.oak.spi.state.NodeStateUtils;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.apache.jackrabbit.oak.spi.whiteboard.Whiteboard;
 import org.apache.jackrabbit.oak.spi.whiteboard.WhiteboardUtils;
@@ -72,16 +73,8 @@ public class TestUtility {
         root.commit();
     }
 
-    public void addPropertyWithLongName() throws CommitFailedException {
-        for (int i = 0; i < 5; i++) {
-            Tree t = root.getTree("/").addChild("foo" + i);
-            for (int j = 0; j < 2; j++) {
-                t.addChild("bar".repeat(50));
-            }
-
-            root.commit();
-            runAsyncIndex();
-        }
+    public boolean nodeExists(String path) {
+        return NodeStateUtils.getNode(store.getRoot(), path).exists();
     }
 
     private Oak getOak() {
@@ -95,6 +88,10 @@ public class TestUtility {
                              // timing as per test requirement
                              .withAsyncIndexing("async",
                                                 TimeUnit.DAYS.toSeconds(1));
+    }
+
+    Root getRoot() {
+        return root;
     }
 
     private void mergeIndex(NodeStore nodeStore,
@@ -113,7 +110,7 @@ public class TestUtility {
         nodeStore.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
     }
 
-    private void runAsyncIndex() {
+    void runAsyncIndex() {
         Runnable async = WhiteboardUtils.getService(wb, Runnable.class,
                                                     (Predicate<Runnable>) input -> input instanceof AsyncIndexUpdate);
         assertNotNull(async);

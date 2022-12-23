@@ -5,7 +5,11 @@ import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.api.Tree;
 import org.apache.jackrabbit.oak.commons.json.JsonObject;
 import org.apache.jackrabbit.oak.commons.json.JsopTokenizer;
+import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
+import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
+import org.apache.jackrabbit.oak.spi.commit.EmptyHook;
+import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStateUtils;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
@@ -15,7 +19,9 @@ import org.junit.Test;
 import java.util.Optional;
 
 import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 public class StatisticsIndexTest {
@@ -41,16 +47,46 @@ public class StatisticsIndexTest {
     public void testCorruptedIndex() throws CommitFailedException {
         utility.addNodes();
         Tree t = utility.getIndexNodeTree();
-
-        //        builder.setProperty();
     }
 
     @Test
-    public void testLongValueName() throws CommitFailedException {
-        utility.addPropertyWithLongName();
-        Tree t = utility.getIndexNodeTree();
+    public void testGetValueAsString() throws CommitFailedException {
+        String veryLong = "this is a long string".repeat(10);
+        String veryLongTruncated = StatisticsEditor.getValueAsString(veryLong);
+        assertNotEquals(veryLong, veryLongTruncated);
 
-        //        assertTrue(t)
+        Object expected = "shortString";
+        String actual = StatisticsEditor.getValueAsString(expected);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testReadProperty() throws CommitFailedException {
+        utility.addNodes();
+
+        NodeBuilder builder = nodeStore.getRoot().builder();
+
+        builder.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME)
+               .getChildNode(StatisticsEditorProvider.TYPE)
+               .getChildNode("properties")
+               .remove();
+
+        nodeStore.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+
+        Optional<PropertyStatistics> prop =
+                StatisticsEditor.readPropertyStatistics(
+                builder.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME)
+                       .getChildNode(StatisticsEditorProvider.TYPE),
+                "jcr:primaryType");
+
+        assertTrue(prop.isEmpty());
+    }
+
+    @Test
+    public void testEmptyTopK() {
+        TopKValues topKValues = StatisticsEditor.readTopKElements(null, null,
+                                                                  5);
+        assertTrue(topKValues.isEmpty());
     }
 
     @Test
