@@ -1,11 +1,15 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class HyperLogLog implements CardinalityEstimator {
-
+    private static final Logger logger = LoggerFactory.getLogger(
+            HyperLogLog.class);
     private final int m;
     private final byte[] counters;
     private final double am;
@@ -46,14 +50,27 @@ public class HyperLogLog implements CardinalityEstimator {
      */
     public static byte[] deserialize(String hllCounts) {
         String[] parts = hllCounts.split("\\s+");
-        List<Byte> longList = Stream.of(parts)
-                                    .map(Byte::valueOf)
-                                    .collect(Collectors.toList());
-        byte[] data = new byte[parts.length];
-        for (int i = 0; i < longList.size(); i++) {
-            data[i] = longList.get(i);
+        if (parts.length != StatisticsEditor.DEFAULT_HLL_SIZE) {
+            logger.warn(
+                    "Number of elements in: " + hllCounts + " does not match "
+                            + "the " + "expected: " + StatisticsEditor.DEFAULT_HLL_SIZE);
+            return new byte[StatisticsEditor.DEFAULT_HLL_SIZE];
         }
-        return data;
+        
+        try {
+            List<Byte> longList = Stream.of(parts)
+                                        .map(Byte::valueOf)
+                                        .collect(Collectors.toList());
+            byte[] data = new byte[parts.length];
+            for (int i = 0; i < longList.size(); i++) {
+                data[i] = longList.get(i);
+            }
+            return data;
+        } catch (NumberFormatException e) {
+            logger.warn("Can not parse: " + hllCounts);
+        }
+
+        return new byte[StatisticsEditor.DEFAULT_HLL_SIZE];
     }
 
     @Override
