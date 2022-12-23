@@ -4,7 +4,6 @@ import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.plugins.index.IndexUpdateCallback;
-import org.apache.jackrabbit.oak.plugins.index.counter.SipHash;
 import org.apache.jackrabbit.oak.spi.commit.Editor;
 import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
@@ -51,7 +50,7 @@ public class StatisticsEditor implements Editor {
     public static final String PROPERTY_CMS_ROWS_NAME = "propertyCMSRows";
     public static final String PROPERTY_CMS_COLS_NAME = "propertyCMSCols";
 
-    public static final String VALUE_SKETCH = "valueSketch";
+    public static final String VALUE_SKETCH_NAME = "valueSketch";
     public static final String VALUE_SKETCH_ROWS = "valueSketchRows";
     public static final String VALUE_SKETCH_COLS = "valueSketchCols";
 
@@ -70,7 +69,6 @@ public class StatisticsEditor implements Editor {
     private final StatisticsEditor parent;
     private final String name;
     private CountMinSketch propertyNameCMS;
-    private SipHash hash;
     private int recursionLevel;
 
     StatisticsEditor(StatisticsRoot root, CountMinSketch propertyNameCMS,
@@ -159,7 +157,8 @@ public class StatisticsEditor implements Editor {
         TopKValues topKValues = readTopKElements(topKValueNames,
                                                  topKValueCounts, k);
 
-        CountMinSketch valueSketch = CountMinSketch.readCMS(node, VALUE_SKETCH,
+        CountMinSketch valueSketch = CountMinSketch.readCMS(node,
+                                                            VALUE_SKETCH_NAME,
                                                             VALUE_SKETCH_ROWS,
                                                             VALUE_SKETCH_COLS,
                                                             LOG);
@@ -223,8 +222,7 @@ public class StatisticsEditor implements Editor {
 
             setPrimaryType(statNode);
             statNode.setProperty("count", propStats.getCount());
-            statNode.setProperty("cmsCount", propStats.getCmsCount(
-                    Hash.hash64(propStats.getName().hashCode())));
+            statNode.setProperty("cmsCount", propStats.getCmsCount());
 
             String hllSerialized = propStats.getHll().serialize();
             // TODO: consider using HyperLogLog4TailCut64 so that we only store
@@ -235,7 +233,7 @@ public class StatisticsEditor implements Editor {
             String[] valueSketchSerialized = valueSketch.serialize();
 
             for (int i = 0; i < valueSketchSerialized.length; i++) {
-                statNode.setProperty(VALUE_SKETCH + i,
+                statNode.setProperty(VALUE_SKETCH_NAME + i,
                                      valueSketchSerialized[i]);
             }
 
