@@ -1,10 +1,7 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
-import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.api.Tree;
-import org.apache.jackrabbit.oak.commons.json.JsonObject;
-import org.apache.jackrabbit.oak.commons.json.JsopTokenizer;
 import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
 import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
@@ -27,15 +24,8 @@ import static org.junit.Assert.assertTrue;
 public class StatisticsIndexTest {
 
     NodeStore nodeStore;
-    Root root;
 
     private TestUtility utility;
-
-    private static JsonObject parseJson(String json) {
-        JsopTokenizer t = new JsopTokenizer(json);
-        t.read('{');
-        return JsonObject.create(t);
-    }
 
     @Before
     public void before() throws Exception {
@@ -44,13 +34,7 @@ public class StatisticsIndexTest {
     }
 
     @Test
-    public void testCorruptedIndex() throws CommitFailedException {
-        utility.addNodes();
-        Tree t = utility.getIndexNodeTree();
-    }
-
-    @Test
-    public void testGetValueAsString() throws CommitFailedException {
+    public void testGetValueAsString() {
         String veryLong = "this is a long string".repeat(10);
         String veryLongTruncated = StatisticsEditor.getValueAsString(veryLong);
         assertNotEquals(veryLong, veryLongTruncated);
