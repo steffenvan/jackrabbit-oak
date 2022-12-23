@@ -5,7 +5,7 @@ import org.apache.felix.inventory.InventoryPrinter;
 import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
 import org.apache.jackrabbit.oak.json.Base64BlobSerializer;
 import org.apache.jackrabbit.oak.json.JsonSerializer;
-import org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader;
+import org.apache.jackrabbit.oak.plugins.index.statistics.IndexReader;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
@@ -41,8 +41,8 @@ public class StatisticsDefinitionPrinter implements InventoryPrinter {
 
             // oak:index/statistics/index
             Optional<NodeState> statisticsNode =
-                    NodeReader.getStatisticsIndexDataNodeOrNull(
-                    NodeReader.getIndexRoot(nodeStore));
+                    IndexReader.getStatisticsIndexDataNodeOrNull(
+                    IndexReader.getIndexRoot(nodeStore));
 
             statisticsNode.ifPresent(node -> {
                 if (node.hasChildNode(StatisticsEditor.PROPERTIES)) {

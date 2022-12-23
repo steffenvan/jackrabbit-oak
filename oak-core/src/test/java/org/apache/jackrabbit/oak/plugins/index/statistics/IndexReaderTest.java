@@ -28,17 +28,17 @@ public class NodeReaderTest {
 
     @Test
     public void testGetStatisticsIndexNode() throws CommitFailedException {
-        NodeState indexNode = NodeReader.getIndexRoot(store);
+        NodeState indexNode = IndexReader.getIndexRoot(store);
         Optional<NodeState> statNode =
-                NodeReader.getStatisticsIndexDataNodeOrNull(
+                IndexReader.getStatisticsIndexDataNodeOrNull(
                 indexNode);
 
         // no properties added so it should be empty
         assertFalse(statNode.isPresent());
 
         utility.addNodes();
-        indexNode = NodeReader.getIndexRoot(store);
-        statNode = NodeReader.getStatisticsIndexDataNodeOrNull(indexNode);
+        indexNode = IndexReader.getIndexRoot(store);
+        statNode = IndexReader.getStatisticsIndexDataNodeOrNull(indexNode);
 
         // since we added some properties and re-read the index it should now
         // exist. We don't verify that the properties actually exist as that
@@ -49,25 +49,25 @@ public class NodeReaderTest {
     @Test
     public void testGetStringOrEmptyWithValidString() throws CommitFailedException {
         utility.addNodes();
-        NodeState indexNode = NodeReader.getIndexRoot(store);
+        NodeState indexNode = IndexReader.getIndexRoot(store);
         Optional<NodeState> statNode =
-                NodeReader.getStatisticsIndexDataNodeOrNull(
+                IndexReader.getStatisticsIndexDataNodeOrNull(
                 indexNode);
 
         assertTrue(statNode.isPresent());
         NodeState statNodeIndex = statNode.get();
         // since some nodes have been added we know that a property sketch
         // has been created with at least one row
-        String val = NodeReader.getStringOrEmpty(statNodeIndex,
-                                                 StatisticsEditor.PROPERTY_CMS_NAME + 0);
+        String val = IndexReader.getStringOrEmpty(statNodeIndex,
+                                                  StatisticsEditor.PROPERTY_CMS_NAME + 0);
         assertFalse(val.isEmpty());
     }
 
     @Test
     public void testGetStatNodeWithNonExistentIndexRoot() {
-        NodeState indexRoot = NodeReader.getIndexRoot(store);
+        NodeState indexRoot = IndexReader.getIndexRoot(store);
         NodeState empty = indexRoot.getChildNode("DOES NOT EXIST");
-        Optional<NodeState> stat = NodeReader.getStatisticsIndexDataNodeOrNull(
+        Optional<NodeState> stat = IndexReader.getStatisticsIndexDataNodeOrNull(
                 empty);
 
         assertTrue(stat.isEmpty());
@@ -84,7 +84,7 @@ public class NodeReaderTest {
         NodeState indexRoot = indexRootBuilder.getNodeState();
 
         Optional<NodeState> result =
-                NodeReader.getStatisticsIndexDataNodeOrNull(
+                IndexReader.getStatisticsIndexDataNodeOrNull(
                 indexRoot);
 
         assertTrue(result.isEmpty());
@@ -101,7 +101,7 @@ public class NodeReaderTest {
         NodeState indexRoot = indexRootBuilder.getNodeState();
 
         Optional<NodeState> result =
-                NodeReader.getStatisticsIndexDataNodeOrNull(
+                IndexReader.getStatisticsIndexDataNodeOrNull(
                 indexRoot);
 
         assertTrue(result.isEmpty());

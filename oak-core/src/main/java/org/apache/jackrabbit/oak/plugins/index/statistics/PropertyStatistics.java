@@ -8,9 +8,9 @@ import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import java.util.List;
 import java.util.Optional;
 
-import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getIndexRoot;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getStatisticsIndexDataNodeOrNull;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getStringOrEmpty;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexReader.getIndexRoot;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexReader.getStatisticsIndexDataNodeOrNull;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexReader.getStringOrEmpty;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTIES;
 import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
 

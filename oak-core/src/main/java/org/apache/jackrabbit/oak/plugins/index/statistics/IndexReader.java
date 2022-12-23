@@ -12,7 +12,7 @@ import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getString;
  * Represents a set of utility functions that makes it easier to read the
  * oak:index node and the statistics index node.
  */
-public class NodeReader {
+public class IndexReader {
     public static String getStringOrEmpty(NodeState nodeState, String name) {
         return Optional.ofNullable(getString(nodeState, name)).orElse("");
     }
