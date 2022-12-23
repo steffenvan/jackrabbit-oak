@@ -44,6 +44,12 @@ public class CountMinSketch implements FrequencyCounter {
 
     public static long[] deserialize(String row, int cols) {
         String[] allStuff = row.split("\\s+");
+        if (allStuff.length != cols) {
+            LOG.warn(
+                    "Number of elements in: " + row + " does not match the " + "expected: " + cols);
+            return new long[cols];
+        }
+
         try {
             List<Long> longList = Stream.of(allStuff)
                                         .map(Long::valueOf)

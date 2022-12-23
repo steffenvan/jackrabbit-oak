@@ -30,6 +30,13 @@ public class CountMinSketchTest {
     }
 
     @Test
+    public void testDeserializeInvalidRowTooShort() {
+        String invalid = "123 22";
+        long[] res = CountMinSketch.deserialize(invalid, 4);
+        assertArrayEquals(res, new long[4]);
+    }
+
+    @Test
     public void testColsTooSmall() {
         Throwable e = assertThrows(IllegalArgumentException.class,
                                    () -> new CountMinSketch(rows(5), cols(1)));
