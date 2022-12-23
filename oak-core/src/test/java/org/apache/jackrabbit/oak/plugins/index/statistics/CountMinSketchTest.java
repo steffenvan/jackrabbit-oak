@@ -1,9 +1,7 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import org.junit.Assert;
-import org.junit.BeforeClass;
 import org.junit.Test;
-import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,18 +21,6 @@ import static org.junit.Assert.assertTrue;
 public class CountMinSketchTest {
 
     private static final String WITH_DELIMITER = "(?=1$s)";
-
-    private static Logger mockLogger;
-
-
-    @BeforeClass
-    public static void setup() {
-        //        mockStatic(LoggerFactory.class);
-        //        try (Mockito.mockStatic(LoggerFactory.class);
-        //        mockLogger = mock(Logger.class);
-        //        when(LoggerFactory.getLogger(any(Class.class))).thenReturn
-        //        (mockLogger);
-    }
 
     @Test
     public void testDeserializeInvalidRow() {
