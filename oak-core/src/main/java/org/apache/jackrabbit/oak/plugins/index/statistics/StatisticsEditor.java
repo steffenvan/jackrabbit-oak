@@ -121,6 +121,69 @@ public class StatisticsEditor implements Editor {
                value.substring(0, 128) + " ... [" + value.hashCode() + "]";
     }
 
+    static Optional<NodeBuilder> getPropertyNode(NodeBuilder definition,
+                                                 String propertyName) {
+        if (!definition.hasChildNode(DATA_NODE_NAME)) {
+            return Optional.empty();
+        }
+
+        NodeBuilder data = definition.getChildNode(DATA_NODE_NAME);
+        if (!data.hasChildNode("properties")) {
+            return Optional.empty();
+        }
+
+        NodeBuilder properties = data.getChildNode("properties");
+        if (!properties.hasChildNode(propertyName)) {
+            return Optional.empty();
+        }
+
+        NodeBuilder prop = properties.getChildNode(propertyName);
+        PropertyState count = prop.getProperty("count");
+        if (count == null) {
+            return Optional.empty();
+        }
+
+        return Optional.of(prop);
+    }
+
+    static Optional<PropertyStatistics> getPropertyStatistics(NodeState node,
+                                                              String propertyName) {
+        long c = getLong(node, EXACT_COUNT);
+        String hll = Optional.ofNullable(getString(node, PROPERTY_HLL_NAME))
+                             .orElse("");
+        byte[] hllData = HyperLogLog.deserialize(hll);
+
+        PropertyState topKValueNames = node.getProperty(PROPERTY_TOP_K_NAME);
+        PropertyState topKValueCounts = node.getProperty(PROPERTY_TOP_K_COUNT);
+        int k = Math.toIntExact(getLong(node, PROPERTY_TOP_K));
+        TopKValues topKValues = readTopKElements(topKValueNames,
+                                                 topKValueCounts, k);
+
+        CountMinSketch valueSketch = CountMinSketch.readCMS(node, VALUE_SKETCH,
+                                                            VALUE_SKETCH_ROWS,
+                                                            VALUE_SKETCH_COLS,
+                                                            LOG);
+
+        return Optional.of(new PropertyStatistics(propertyName, c,
+                                                  new HyperLogLog(
+                                                          DEFAULT_HLL_SIZE,
+                                                          hllData), valueSketch,
+                                                  topKValues));
+    }
+
+    static Optional<PropertyStatistics> readPropertyStatistics(
+            NodeBuilder builder, String propertyName) {
+
+        Optional<NodeBuilder> property = getPropertyNode(builder, propertyName);
+        if (property.isEmpty()) {
+            return Optional.empty();
+        }
+
+        NodeState node = property.get().getNodeState();
+
+        return getPropertyStatistics(node, propertyName);
+    }
+
     @Override
     public void enter(NodeState before,
                       NodeState after) throws CommitFailedException {
@@ -251,7 +314,7 @@ public class StatisticsEditor implements Editor {
                 propertyStatistics.get(propertyName));
 
         if (ps.isEmpty()) {
-            ps = readPropertyStatistics(propertyName);
+            ps = readPropertyStatistics(root.definition, propertyName);
             if (ps.isEmpty()) {
                 ps = Optional.of(new PropertyStatistics(propertyName, 0,
                                                         new HyperLogLog(
@@ -274,52 +337,6 @@ public class StatisticsEditor implements Editor {
             p.updateValueLength(value);
             p.incCount(1);
         });
-    }
-
-    private Optional<PropertyStatistics> readPropertyStatistics(
-            String propertyName) {
-        if (!root.definition.hasChildNode(DATA_NODE_NAME)) {
-            return Optional.empty();
-        }
-
-        NodeBuilder data = root.definition.getChildNode(DATA_NODE_NAME);
-        if (!data.hasChildNode("properties")) {
-            return Optional.empty();
-        }
-
-        NodeBuilder properties = data.getChildNode("properties");
-        if (!properties.hasChildNode(propertyName)) {
-            return Optional.empty();
-        }
-
-        NodeBuilder prop = properties.getChildNode(propertyName);
-        PropertyState count = prop.getProperty("count");
-        if (count == null) {
-            return Optional.empty();
-        }
-
-        long c = getLong(prop.getNodeState(), EXACT_COUNT);
-        String hll = Optional.ofNullable(
-                getString(prop.getNodeState(), PROPERTY_HLL_NAME)).orElse("");
-        byte[] hllData = HyperLogLog.deserialize(hll);
-
-        PropertyState topKValueNames = prop.getProperty(PROPERTY_TOP_K_NAME);
-        PropertyState topKValueCounts = prop.getProperty(PROPERTY_TOP_K_COUNT);
-        int k = Math.toIntExact(getLong(prop.getNodeState(), PROPERTY_TOP_K));
-        TopKValues topKValues = readTopKElements(topKValueNames,
-                                                 topKValueCounts, k);
-
-        CountMinSketch valueSketch = CountMinSketch.readCMS(prop.getNodeState(),
-                                                            VALUE_SKETCH,
-                                                            VALUE_SKETCH_ROWS,
-                                                            VALUE_SKETCH_COLS,
-                                                            LOG);
-
-        return Optional.of(new PropertyStatistics(propertyName, c,
-                                                  new HyperLogLog(
-                                                          DEFAULT_HLL_SIZE,
-                                                          hllData), valueSketch,
-                                                  topKValues));
     }
 
     @Override
