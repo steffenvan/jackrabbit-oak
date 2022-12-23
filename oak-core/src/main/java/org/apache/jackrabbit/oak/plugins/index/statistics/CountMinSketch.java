@@ -4,6 +4,7 @@ import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.List;
@@ -15,6 +16,8 @@ import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
 
 public class CountMinSketch implements FrequencyCounter {
     private static final Random RANDOM = new Random();
+    private static final Logger LOG = LoggerFactory.getLogger(
+            CountMinSketch.class);
     private final long[][] items;
     private final int rows;
     private final int cols;
@@ -25,9 +28,8 @@ public class CountMinSketch implements FrequencyCounter {
 
     public CountMinSketch(int rows, int cols, long[][] items) {
         if (Integer.bitCount(cols) != 1 || cols < 2) {
-            // throw new IllegalArgumentException("The number of columns must
-            // be a power of 2 and larger than 2.");
-            System.out.println("error");
+            throw new IllegalArgumentException(
+                    "The number of columns must be a power of 2 and larger " + "than 2. Got: " + cols);
         }
 
         this.rows = rows;
@@ -40,29 +42,23 @@ public class CountMinSketch implements FrequencyCounter {
         this(cms.getRows(), cms.getCols(), cms.getData());
     }
 
-    public static long estimateCount(long hash, long[][] counts, int cols,
-                                     int rows) {
-        long currMin = Long.MAX_VALUE;
-        for (int i = 0; i < rows; i++) {
-            long h2 = Hash.hash64(hash, i);
-            int col = (int) (h2 & (cols - 1));
-            currMin = Math.min(currMin, counts[i][col]);
+    public static long[] deserialize(String row, int cols) {
+        String[] allStuff = row.split("\\s+");
+        try {
+            List<Long> longList = Stream.of(allStuff)
+                                        .map(Long::valueOf)
+                                        .collect(Collectors.toList());
+            return longList.stream().mapToLong(i -> i).toArray();
+        } catch (NumberFormatException e) {
+            LOG.warn("Can not parse: " + row);
         }
 
-        return currMin;
-    }
-
-    public static long[] deserialize(String row) {
-        String[] allStuff = row.split("\\s+");
-        List<Long> longList = Stream.of(allStuff)
-                                    .map(Long::valueOf)
-                                    .collect(Collectors.toList());
-        return longList.stream().mapToLong(i -> i).toArray();
+        return new long[cols];
     }
 
     public static CountMinSketch readCMS(NodeState node, String cmsName,
                                          String rowName, String colName,
-                                         Logger logger) {
+                                         Logger log) {
 
         int rows = Math.toIntExact(getLong(node, rowName));
         int cols = Math.toIntExact(getLong(node, colName));
@@ -73,12 +69,7 @@ public class CountMinSketch implements FrequencyCounter {
             PropertyState ps = node.getProperty(cmsName + i);
             if (ps != null) {
                 String s = ps.getValue(Type.STRING);
-                try {
-                    long[] row = CountMinSketch.deserialize(s);
-                    data[i] = row;
-                } catch (NumberFormatException e) {
-                    logger.warn("Can not parse " + s);
-                }
+                data[i] = CountMinSketch.deserialize(s, cols);
             }
         }
 
