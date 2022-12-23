@@ -27,9 +27,8 @@ public class StatisticsDefinitionPrinter implements InventoryPrinter {
 
     @Reference
     private final NodeStore nodeStore;
-    private String filter =
-            "{\" \":[\"*\", \"-:childOrder\"]," + "\"nodes" + "\":[\"*\", " + "\"-:*\"]}";
-
+    private String filter = "{\"properties\":[\"*\", \"-:childOrder\"]," +
+            "\"nodes\":[\"*\", \"-:*\"]}";
 
     public StatisticsDefinitionPrinter(NodeStore nodeStore) {
         this.nodeStore = nodeStore;
