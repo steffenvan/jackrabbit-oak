@@ -1,6 +1,18 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
+import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.ContentStatistics;
+import org.apache.jackrabbit.oak.spi.state.NodeState;
+import org.apache.jackrabbit.oak.spi.state.NodeStore;
+
 import java.util.List;
+import java.util.Optional;
+
+import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getIndexRoot;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getStatisticsIndexDataNodeOrNull;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.NodeReader.getStringOrEmpty;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTIES;
+import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
 
 /**
  * Represents the collected statistics data for a property. This object is only
@@ -27,10 +39,10 @@ public class PropertyStatistics {
 
     }
 
-    PropertyStatistics(String name, long count, HyperLogLog hll,
-                       CountMinSketch valueSketch, TopKValues topKValues,
-                       long valueLengthTotal, long valueLengthMax,
-                       long valueLengthMin) {
+    public PropertyStatistics(String name, long count, HyperLogLog hll,
+                              CountMinSketch valueSketch, TopKValues topKValues,
+                              long valueLengthTotal, long valueLengthMax,
+                              long valueLengthMin) {
         this.name = name;
         this.count = count;
         this.hll = hll;
@@ -39,6 +51,67 @@ public class PropertyStatistics {
         this.valueLengthTotal = valueLengthTotal;
         this.valueLengthMax = valueLengthMax;
         this.valueLengthMin = valueLengthMin;
+    }
+
+    public static Optional<NodeState> getPropertyNodeState(String name,
+                                                           NodeStore store) {
+        Optional<NodeState> statisticsDataNode =
+                getStatisticsIndexDataNodeOrNull(
+                getIndexRoot(store));
+
+        if (statisticsDataNode.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(statisticsDataNode.get()
+                                             .getChildNode(PROPERTIES)
+                                             .getChildNode(name));
+    }
+
+    public static Optional<PropertyStatistics> fromName(String name,
+                                                        NodeStore store) {
+
+        Optional<NodeState> properties = getPropertyNodeState(name, store);
+        if (properties.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return fromNodeState(name, properties.get());
+    }
+
+    public static Optional<PropertyStatistics> fromNodeState(String name,
+                                                             NodeState property) {
+        long count = getLong(property, StatisticsEditor.EXACT_COUNT);
+        long valueLengthTotal = getLong(property,
+                                        StatisticsEditor.VALUE_LENGTH_TOTAL);
+        long valueLengthMax = getLong(property,
+                                      StatisticsEditor.VALUE_LENGTH_MAX);
+        long valueLengthMin = getLong(property,
+                                      StatisticsEditor.VALUE_LENGTH_MIN);
+
+
+        String storedHll = getStringOrEmpty(property,
+                                            StatisticsEditor.PROPERTY_HLL_NAME);
+        byte[] hllData = HyperLogLog.deserialize(storedHll);
+        HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
+
+        int topK = Math.toIntExact(
+                getLong(property, StatisticsEditor.PROPERTY_TOP_K));
+        TopKValues topKValues = StatisticsEditor.readTopKElements(
+                property.getProperty(StatisticsEditor.PROPERTY_TOP_K_NAME),
+                property.getProperty(StatisticsEditor.PROPERTY_TOP_K_COUNT),
+                topK);
+
+        CountMinSketch cms = CountMinSketch.readCMS(property,
+                                                    StatisticsEditor.VALUE_SKETCH_NAME,
+                                                    StatisticsEditor.VALUE_SKETCH_ROWS,
+                                                    StatisticsEditor.VALUE_SKETCH_COLS,
+                                                    ContentStatistics.CS_LOG);
+
+        return Optional.of(
+                new PropertyStatistics(name, count, hll, cms, topKValues,
+                                       valueLengthTotal, valueLengthMax,
+                                       valueLengthMin));
     }
 
     void updateHll(long hash) {
@@ -65,7 +138,7 @@ public class PropertyStatistics {
         valueLengthMin = Math.min(valueLengthMin, len);
     }
 
-    List<TopKValues.ValueCountPair> getTopKValuesDescending() {
+    public List<TopKValues.ValueCountPair> getTopKValuesDescending() {
         return topKValues.get();
     }
 
@@ -73,19 +146,19 @@ public class PropertyStatistics {
         return new CountMinSketch(valueSketch);
     }
 
-    long getValueLengthTotal() {
+    public long getValueLengthTotal() {
         return valueLengthTotal;
     }
 
-    long getValueLengthMax() {
+    public long getValueLengthMax() {
         return valueLengthMax;
     }
 
-    long getValueLengthMin() {
+    public long getValueLengthMin() {
         return valueLengthMin;
     }
 
-    long getCount() {
+    public long getCount() {
         return count;
     }
 
@@ -97,11 +170,48 @@ public class PropertyStatistics {
         return hll;
     }
 
+    public long getUniqueCount() {
+        return hll.estimate();
+    }
+
     void incCount(long count) {
         this.count += count;
     }
 
-    public long getCmsCount(long hash) {
+    public long getCmsCount() {
+        long hash = Hash.hash64(name.hashCode());
         return valueSketch.estimateCount(hash);
+    }
+
+    @Override
+    public String toString() {
+
+        JsopBuilder builder = new JsopBuilder();
+        builder.object();
+
+        builder = builder.key("propertyName");
+        builder = builder.value(name);
+
+        builder = builder.key("count");
+        builder = builder.value(count);
+
+        builder = builder.key("cmsCount");
+        builder = builder.value(getCmsCount());
+
+        builder = builder.key("hllCount");
+        builder = builder.value(getUniqueCount());
+
+        builder = builder.key("valueLengthTotal");
+        builder = builder.value(valueLengthTotal);
+
+        builder = builder.key("valueLengthMax");
+        builder = builder.value(valueLengthMax);
+
+        builder = builder.key("valueLengthMin");
+        builder = builder.value(valueLengthMin);
+
+        builder = builder.endObject();
+
+        return builder.toString();
     }
 }
