@@ -113,6 +113,10 @@ public class TopKValues {
         return topValues.peek();
     }
 
+    public boolean isEmpty() {
+        return currValues.isEmpty() && topValues.isEmpty();
+    }
+
     void clear() {
         topValues.clear();
         currValues.clear();
