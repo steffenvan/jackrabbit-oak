@@ -185,12 +185,4 @@ public class CountMinSketchTest {
     private int cols(int c) {
         return c;
     }
-
-    private double epsilon(double x) {
-        return x;
-    }
-
-    private double delta(double x) {
-        return x;
-    }
 }
