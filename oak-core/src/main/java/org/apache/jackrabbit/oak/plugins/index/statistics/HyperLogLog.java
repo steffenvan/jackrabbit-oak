@@ -16,10 +16,12 @@ public class HyperLogLog implements CardinalityEstimator {
 
     public HyperLogLog(int m, byte[] counters) {
         if (m < 16) {
-            throw new IllegalArgumentException("Must be >= 16, is " + m);
+            throw new IllegalArgumentException(
+                    "The size must be >= 16. The provided size is: " + m);
         }
         if (Integer.bitCount(m) != 1) {
-            throw new IllegalArgumentException("Must be a power of 2, is " + m);
+            throw new IllegalArgumentException(
+                    "The size must be a power of 2. The provided size is: " + m);
         }
         this.m = m;
         this.counters = counters;
