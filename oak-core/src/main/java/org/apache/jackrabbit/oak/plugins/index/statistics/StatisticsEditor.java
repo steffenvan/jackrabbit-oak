@@ -3,6 +3,7 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
+import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
 import org.apache.jackrabbit.oak.plugins.index.IndexUpdateCallback;
 import org.apache.jackrabbit.oak.spi.commit.Editor;
 import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
@@ -20,8 +21,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.jackrabbit.JcrConstants.JCR_PRIMARYTYPE;
-import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
-import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getString;
 
 /**
  * Represents the class that creates, stores and updates oak:index/statistics.
@@ -119,70 +118,6 @@ public class StatisticsEditor implements Editor {
                value.substring(0, 128) + " ... [" + value.hashCode() + "]";
     }
 
-    static Optional<NodeBuilder> getPropertyNode(NodeBuilder definition,
-                                                 String propertyName) {
-        if (!definition.hasChildNode(DATA_NODE_NAME)) {
-            return Optional.empty();
-        }
-
-        NodeBuilder data = definition.getChildNode(DATA_NODE_NAME);
-        if (!data.hasChildNode("properties")) {
-            return Optional.empty();
-        }
-
-        NodeBuilder properties = data.getChildNode("properties");
-        if (!properties.hasChildNode(propertyName)) {
-            return Optional.empty();
-        }
-
-        NodeBuilder prop = properties.getChildNode(propertyName);
-        PropertyState count = prop.getProperty("count");
-        if (count == null) {
-            return Optional.empty();
-        }
-
-        return Optional.of(prop);
-    }
-
-    static Optional<PropertyStatistics> getPropertyStatistics(NodeState node,
-                                                              String propertyName) {
-        long c = getLong(node, EXACT_COUNT);
-        String hll = Optional.ofNullable(getString(node, PROPERTY_HLL_NAME))
-                             .orElse("");
-        byte[] hllData = HyperLogLog.deserialize(hll);
-
-        PropertyState topKValueNames = node.getProperty(PROPERTY_TOP_K_NAME);
-        PropertyState topKValueCounts = node.getProperty(PROPERTY_TOP_K_COUNT);
-        int k = Math.toIntExact(getLong(node, PROPERTY_TOP_K));
-        TopKValues topKValues = readTopKElements(topKValueNames,
-                                                 topKValueCounts, k);
-
-        CountMinSketch valueSketch = CountMinSketch.readCMS(node,
-                                                            VALUE_SKETCH_NAME,
-                                                            VALUE_SKETCH_ROWS,
-                                                            VALUE_SKETCH_COLS,
-                                                            LOG);
-
-        return Optional.of(new PropertyStatistics(propertyName, c,
-                                                  new HyperLogLog(
-                                                          DEFAULT_HLL_SIZE,
-                                                          hllData), valueSketch,
-                                                  topKValues));
-    }
-
-    static Optional<PropertyStatistics> readPropertyStatistics(
-            NodeBuilder builder, String propertyName) {
-
-        Optional<NodeBuilder> property = getPropertyNode(builder, propertyName);
-        if (property.isEmpty()) {
-            return Optional.empty();
-        }
-
-        NodeState node = property.get().getNodeState();
-
-        return getPropertyStatistics(node, propertyName);
-    }
-
     @Override
     public void enter(NodeState before,
                       NodeState after) throws CommitFailedException {
@@ -217,12 +152,14 @@ public class StatisticsEditor implements Editor {
 
         for (Map.Entry<String, PropertyStatistics> e :
                 propertyStatistics.entrySet()) {
-            NodeBuilder statNode = properties.child(e.getKey());
+            String propertyName = e.getKey();
+            NodeBuilder statNode = properties.child(propertyName);
             PropertyStatistics propStats = e.getValue();
 
             setPrimaryType(statNode);
             statNode.setProperty("count", propStats.getCount());
-            statNode.setProperty("cmsCount", propStats.getCmsCount());
+            statNode.setProperty("cmsCount", propertyNameCMS.estimateCount(
+                    Hash.hash64(propertyName.hashCode())));
 
             String hllSerialized = propStats.getHll().serialize();
             // TODO: consider using HyperLogLog4TailCut64 so that we only store
@@ -312,7 +249,10 @@ public class StatisticsEditor implements Editor {
                 propertyStatistics.get(propertyName));
 
         if (ps.isEmpty()) {
-            ps = readPropertyStatistics(root.definition, propertyName);
+            ps = PropertyStatistics.fromPropertyNode(name,
+                                                     IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+                                                             root.root.getChildNode(
+                                                                     IndexConstants.INDEX_DEFINITIONS_NAME)));
             if (ps.isEmpty()) {
                 ps = Optional.of(new PropertyStatistics(propertyName, 0,
                                                         new HyperLogLog(
