@@ -8,6 +8,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -120,6 +121,22 @@ public class HyperLogLogTest {
             Assert.assertTrue("maxError: " + maxError + " got: " + error,
                               error <= maxError);
         }
+    }
+
+    @Test
+    public void testInvalidHllCount() {
+        String invalid = "12 invalid 2 2".repeat(20) + "23 23 23 23";
+        byte[] actual = HyperLogLog.deserialize(invalid);
+        byte[] expectedEmpty = new byte[StatisticsEditor.DEFAULT_HLL_SIZE];
+        assertArrayEquals(expectedEmpty, actual);
+    }
+
+    @Test
+    public void testInvalidHllLength() {
+        String invalid = "42 42";
+        byte[] actual = HyperLogLog.deserialize(invalid);
+        byte[] expectedEmpty = new byte[StatisticsEditor.DEFAULT_HLL_SIZE];
+        assertArrayEquals(expectedEmpty, actual);
     }
 
     @Test

@@ -2,18 +2,12 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.api.Tree;
-import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
-import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
-import org.apache.jackrabbit.oak.spi.commit.EmptyHook;
-import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStateUtils;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.Optional;
 
 import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
 import static org.junit.Assert.assertEquals;
@@ -45,25 +39,18 @@ public class StatisticsIndexTest {
     }
 
     @Test
-    public void testReadProperty() throws CommitFailedException {
+    public void testMultipleAdds() throws CommitFailedException {
+
+        utility.addNodes();
+        NodeState indexNode = IndexReader.getIndexRoot(nodeStore);
+        NodeState statIndexNode =
+                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+                indexNode);
+
         utility.addNodes();
 
-        NodeBuilder builder = nodeStore.getRoot().builder();
+        assertTrue(statIndexNode.exists());
 
-        builder.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME)
-               .getChildNode(StatisticsEditorProvider.TYPE)
-               .getChildNode("properties")
-               .remove();
-
-        nodeStore.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
-
-        Optional<PropertyStatistics> prop =
-                StatisticsEditor.readPropertyStatistics(
-                builder.getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME)
-                       .getChildNode(StatisticsEditorProvider.TYPE),
-                "jcr:primaryType");
-
-        assertTrue(prop.isEmpty());
     }
 
     @Test
@@ -75,35 +62,30 @@ public class StatisticsIndexTest {
 
     @Test
     public void testPropertySketchIsStored() throws CommitFailedException {
-        NodeState indexNode = NodeReader.getIndexRoot(nodeStore);
-        Optional<NodeState> statNode =
-                NodeReader.getStatisticsIndexDataNodeOrNull(
+        NodeState indexNode = IndexReader.getIndexRoot(nodeStore);
+        NodeState statIndexNode =
+                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 indexNode);
 
         // no properties added so it should be empty
-        assertFalse(statNode.isPresent());
+        assertFalse(statIndexNode.exists());
 
         utility.addNodes();
-        indexNode = NodeReader.getIndexRoot(nodeStore);
-        statNode = NodeReader.getStatisticsIndexDataNodeOrNull(indexNode);
+        indexNode = IndexReader.getIndexRoot(nodeStore);
+        statIndexNode =
+                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+                indexNode);
 
         // since we added *some* properties (note that it doesn't really matter
         // which ones) and re-read the index it should now exist.
-        assertTrue(statNode.isPresent() && statNode.get().exists());
+        assertTrue(statIndexNode.exists());
 
-        NodeState statIndexNode = statNode.get();
-
-        System.out.println(statIndexNode);
-        assertTrue(statIndexNode.hasProperty(
-                StatisticsEditor.PROPERTY_CMS_ROWS_NAME));
-        assertTrue(statIndexNode.hasProperty(
-                StatisticsEditor.PROPERTY_CMS_COLS_NAME));
-
-        int rows = Math.toIntExact(getLong(statIndexNode,
-                                           StatisticsEditor.PROPERTY_CMS_ROWS_NAME));
+        statIndexNode = statIndexNode.getChildNode("jcr:isAbstract");
+        int rows = Math.toIntExact(
+                getLong(statIndexNode, StatisticsEditor.VALUE_SKETCH_ROWS));
         for (int i = 0; i < rows; i++) {
             assertTrue(statIndexNode.hasProperty(
-                    StatisticsEditor.PROPERTY_CMS_NAME + i));
+                    StatisticsEditor.VALUE_SKETCH_NAME + i));
         }
 
     }
