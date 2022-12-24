@@ -51,6 +51,15 @@ public class TestUtility {
         this.root = session.getLatestRoot();
     }
 
+    static NodeBuilder getPropertyFromBuilder(NodeStore store) {
+        return store.getRoot()
+                    .builder()
+                    .getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME)
+                    .getChildNode(StatisticsEditorProvider.TYPE)
+                    .getChildNode(StatisticsEditor.DATA_NODE_NAME)
+                    .getChildNode(StatisticsEditor.PROPERTIES);
+    }
+
     Tree getIndexNodeTree() {
         String path = "/oak:index/" + indexName + "/index";
         return root.getTree(path);
