@@ -10,12 +10,11 @@ import org.junit.Test;
 
 import javax.jcr.NoSuchWorkspaceException;
 import javax.security.auth.login.LoginException;
-import java.util.Optional;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class NodeReaderTest {
+public class IndexReaderTest {
     NodeStore store;
     TestUtility utility;
 
@@ -27,39 +26,50 @@ public class NodeReaderTest {
     }
 
     @Test
+    public void testFromProperty() throws CommitFailedException {
+        utility.addNodes();
+
+        NodeState s = IndexReader.getPropertyNode("jcr:isAbstract", store);
+        assertTrue(s.exists());
+    }
+
+    @Test
     public void testGetStatisticsIndexNode() throws CommitFailedException {
         NodeState indexNode = IndexReader.getIndexRoot(store);
-        Optional<NodeState> statNode =
-                IndexReader.getStatisticsIndexDataNodeOrNull(
+        NodeState statNode =
+                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 indexNode);
 
         // no properties added so it should be empty
-        assertFalse(statNode.isPresent());
+        assertFalse(statNode.exists());
 
         utility.addNodes();
         indexNode = IndexReader.getIndexRoot(store);
-        statNode = IndexReader.getStatisticsIndexDataNodeOrNull(indexNode);
+        statNode =
+                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+                indexNode);
 
         // since we added some properties and re-read the index it should now
         // exist. We don't verify that the properties actually exist as that
         // logic belongs to the StatisticsEditor
-        assertTrue(statNode.isPresent() && statNode.get().exists());
+        assertTrue(statNode.exists());
     }
 
     @Test
     public void testGetStringOrEmptyWithValidString() throws CommitFailedException {
         utility.addNodes();
         NodeState indexNode = IndexReader.getIndexRoot(store);
-        Optional<NodeState> statNode =
-                IndexReader.getStatisticsIndexDataNodeOrNull(
+        NodeState statNodeIndex =
+                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 indexNode);
 
-        assertTrue(statNode.isPresent());
-        NodeState statNodeIndex = statNode.get();
+        assertTrue(statNodeIndex.exists());
+
         // since some nodes have been added we know that a property sketch
         // has been created with at least one row
-        String val = IndexReader.getStringOrEmpty(statNodeIndex,
-                                                  StatisticsEditor.PROPERTY_CMS_NAME + 0);
+        String val = IndexReader.getStringOrEmpty(
+                statNodeIndex.getChildNode("jcr:isAbstract"),
+                StatisticsEditor.VALUE_SKETCH_NAME + 0);
         assertFalse(val.isEmpty());
     }
 
@@ -67,10 +77,11 @@ public class NodeReaderTest {
     public void testGetStatNodeWithNonExistentIndexRoot() {
         NodeState indexRoot = IndexReader.getIndexRoot(store);
         NodeState empty = indexRoot.getChildNode("DOES NOT EXIST");
-        Optional<NodeState> stat = IndexReader.getStatisticsIndexDataNodeOrNull(
+        NodeState stat =
+                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 empty);
 
-        assertTrue(stat.isEmpty());
+        assertFalse(stat.exists());
     }
 
     @Test
@@ -83,11 +94,11 @@ public class NodeReaderTest {
 
         NodeState indexRoot = indexRootBuilder.getNodeState();
 
-        Optional<NodeState> result =
-                IndexReader.getStatisticsIndexDataNodeOrNull(
+        NodeState result =
+                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 indexRoot);
 
-        assertTrue(result.isEmpty());
+        assertFalse(result.exists());
     }
 
     @Test
@@ -100,11 +111,11 @@ public class NodeReaderTest {
                         .setProperty("type", "INVALID");
         NodeState indexRoot = indexRootBuilder.getNodeState();
 
-        Optional<NodeState> result =
-                IndexReader.getStatisticsIndexDataNodeOrNull(
+        NodeState result =
+                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 indexRoot);
 
-        assertTrue(result.isEmpty());
+        assertFalse(result.exists());
     }
 
 
