@@ -7,13 +7,13 @@ import org.apache.jackrabbit.oak.json.Base64BlobSerializer;
 import org.apache.jackrabbit.oak.json.JsonSerializer;
 import org.apache.jackrabbit.oak.plugins.index.statistics.IndexReader;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
+import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditorProvider;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
 import java.io.PrintWriter;
-import java.util.Optional;
 
 /**
  * Helper class to convert the statistics index into well-formatted JSON. Used
@@ -40,16 +40,15 @@ public class StatisticsDefinitionPrinter implements InventoryPrinter {
             JsopBuilder json = new JsopBuilder();
 
             // oak:index/statistics/index
-            Optional<NodeState> statisticsNode =
-                    IndexReader.getStatisticsIndexDataNodeOrNull(
-                    IndexReader.getIndexRoot(nodeStore));
+            NodeState statisticsNode = IndexReader.getIndexRoot(nodeStore)
+                                                  .getChildNode(
+                                                          StatisticsEditorProvider.TYPE)
+                                                  .getChildNode("index");
 
-            statisticsNode.ifPresent(node -> {
-                if (node.hasChildNode(StatisticsEditor.PROPERTIES)) {
-                    createSerializer(json).serialize(node);
-                    printWriter.print(JsopBuilder.prettyPrint(json.toString()));
-                }
-            });
+            if (statisticsNode.hasChildNode(StatisticsEditor.PROPERTIES)) {
+                createSerializer(json).serialize(statisticsNode);
+                printWriter.print(JsopBuilder.prettyPrint(json.toString()));
+            }
         }
     }
 

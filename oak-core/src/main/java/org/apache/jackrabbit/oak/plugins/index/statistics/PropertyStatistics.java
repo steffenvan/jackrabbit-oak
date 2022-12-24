@@ -3,15 +3,11 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
 import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.ContentStatistics;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
-import org.apache.jackrabbit.oak.spi.state.NodeStore;
 
 import java.util.List;
 import java.util.Optional;
 
-import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexReader.getIndexRoot;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexReader.getStatisticsIndexDataNodeOrNull;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexReader.getStringOrEmpty;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTIES;
 import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
 
 /**
@@ -53,60 +49,60 @@ public class PropertyStatistics {
         this.valueLengthMin = valueLengthMin;
     }
 
-    public static Optional<NodeState> getPropertyNodeState(String name,
-                                                           NodeStore store) {
-        Optional<NodeState> statisticsDataNode =
-                getStatisticsIndexDataNodeOrNull(
-                getIndexRoot(store));
+    /**
+     * Gets one instance of PropertyStatistics from the index node. Assumes that
+     * propertyNode is stored at:
+     * oak:index/statistics/index/properties/{@code propertyNode}. At the
+     * moment, if one of the stored properties are corrupted, we will just
+     * create that PropertyStatistics with a zero, empty string or empty array
+     * (where appropriate) parameter.
+     * <p>
+     * TODO: should we create a new completely new PropertyStatistics if
+     * reading one of the properties fails?
+     *
+     * @param name         the propertyNode name we want to get the statistics
+     *                     from
+     * @param propertyNode the propertyNode node stored at the path
+     *                     oak:index/statistics/index/properties/
+     * @return A PropertyStatistics that contains the stored or default values.
+     */
+    public static Optional<PropertyStatistics> fromPropertyNode(String name,
+                                                                NodeState propertyNode) {
 
-        if (statisticsDataNode.isEmpty()) {
+        if (!propertyNode.exists() || !propertyNode.hasChildNode(name)) {
             return Optional.empty();
         }
 
-        return Optional.of(statisticsDataNode.get()
-                                             .getChildNode(PROPERTIES)
-                                             .getChildNode(name));
-    }
+        NodeState dataNode = propertyNode.getChildNode(name);
 
-    public static Optional<PropertyStatistics> fromName(String name,
-                                                        NodeStore store) {
+        long count = getLong(dataNode, StatisticsEditor.EXACT_COUNT);
 
-        Optional<NodeState> properties = getPropertyNodeState(name, store);
-        if (properties.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return fromNodeState(name, properties.get());
-    }
-
-    public static Optional<PropertyStatistics> fromNodeState(String name,
-                                                             NodeState property) {
-        long count = getLong(property, StatisticsEditor.EXACT_COUNT);
-        long valueLengthTotal = getLong(property,
-                                        StatisticsEditor.VALUE_LENGTH_TOTAL);
-        long valueLengthMax = getLong(property,
-                                      StatisticsEditor.VALUE_LENGTH_MAX);
-        long valueLengthMin = getLong(property,
-                                      StatisticsEditor.VALUE_LENGTH_MIN);
-
-
-        String storedHll = getStringOrEmpty(property,
-                                            StatisticsEditor.PROPERTY_HLL_NAME);
-        byte[] hllData = HyperLogLog.deserialize(storedHll);
-        HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
-
-        int topK = Math.toIntExact(
-                getLong(property, StatisticsEditor.PROPERTY_TOP_K));
-        TopKValues topKValues = StatisticsEditor.readTopKElements(
-                property.getProperty(StatisticsEditor.PROPERTY_TOP_K_NAME),
-                property.getProperty(StatisticsEditor.PROPERTY_TOP_K_COUNT),
-                topK);
-
-        CountMinSketch cms = CountMinSketch.readCMS(property,
+        CountMinSketch cms = CountMinSketch.readCMS(dataNode,
                                                     StatisticsEditor.VALUE_SKETCH_NAME,
                                                     StatisticsEditor.VALUE_SKETCH_ROWS,
                                                     StatisticsEditor.VALUE_SKETCH_COLS,
                                                     ContentStatistics.CS_LOG);
+        String storedHll = getStringOrEmpty(dataNode,
+                                            StatisticsEditor.PROPERTY_HLL_NAME);
+
+        byte[] hllData = HyperLogLog.deserialize(storedHll);
+        HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
+
+        int topK = Math.toIntExact(
+                getLong(dataNode, StatisticsEditor.PROPERTY_TOP_K));
+
+        TopKValues topKValues = StatisticsEditor.readTopKElements(
+                dataNode.getProperty(StatisticsEditor.PROPERTY_TOP_K_NAME),
+                dataNode.getProperty(StatisticsEditor.PROPERTY_TOP_K_COUNT),
+                topK);
+
+
+        long valueLengthTotal = getLong(dataNode,
+                                        StatisticsEditor.VALUE_LENGTH_TOTAL);
+        long valueLengthMax = getLong(dataNode,
+                                      StatisticsEditor.VALUE_LENGTH_MAX);
+        long valueLengthMin = getLong(dataNode,
+                                      StatisticsEditor.VALUE_LENGTH_MIN);
 
         return Optional.of(
                 new PropertyStatistics(name, count, hll, cms, topKValues,
@@ -170,16 +166,30 @@ public class PropertyStatistics {
         return hll;
     }
 
-    public long getUniqueCount() {
-        return hll.estimate();
-    }
 
     void incCount(long count) {
         this.count += count;
     }
 
-    public long getCmsCount() {
-        long hash = Hash.hash64(name.hashCode());
+    /**
+     * Gets the estimated number of unique values this property has.
+     *
+     * @return the estimated number of unique values of this property.
+     */
+    public long getUniqueCount() {
+        return hll.estimate();
+    }
+
+    /**
+     * Gets the estimated count of the value, e.g "red" or "blue" if the
+     * property is "color".
+     *
+     * @param value the value to get the estimated count of. E.g. "blue" or
+     *              "red"
+     * @return the estimated count of the value under this property.
+     */
+    public long getCmsCount(String value) {
+        long hash = Hash.hash64(value.hashCode());
         return valueSketch.estimateCount(hash);
     }
 
@@ -194,9 +204,6 @@ public class PropertyStatistics {
 
         builder = builder.key("count");
         builder = builder.value(count);
-
-        builder = builder.key("cmsCount");
-        builder = builder.value(getCmsCount());
 
         builder = builder.key("hllCount");
         builder = builder.value(getUniqueCount());
