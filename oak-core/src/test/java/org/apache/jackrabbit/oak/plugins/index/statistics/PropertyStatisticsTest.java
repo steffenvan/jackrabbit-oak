@@ -16,6 +16,7 @@ import javax.jcr.NoSuchWorkspaceException;
 import javax.security.auth.login.LoginException;
 import java.util.Optional;
 
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getIndexRoot;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -73,9 +74,8 @@ public class PropertyStatisticsTest {
         utility.addNodes();
 
         // oak:index/statistics/index/properties
-        NodeState dataNode =
-                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
-                IndexReader.getIndexRoot(nodeStore));
+        NodeState dataNode = StatisticsIndexHelper.getNodeFromIndexRoot(
+                getIndexRoot(nodeStore));
         Optional<PropertyStatistics> ps = PropertyStatistics.fromPropertyNode(
                 "jcr:isAbstract", dataNode);
 

@@ -9,6 +9,9 @@ import org.apache.jackrabbit.oak.spi.state.NodeStore;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.List;
+
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getIndexRoot;
 import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -42,15 +45,23 @@ public class StatisticsIndexTest {
     public void testMultipleAdds() throws CommitFailedException {
 
         utility.addNodes();
-        NodeState indexNode = IndexReader.getIndexRoot(nodeStore);
-        NodeState statIndexNode =
-                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+        NodeState indexNode = getIndexRoot(nodeStore);
+        NodeState statIndexNode = StatisticsIndexHelper.getNodeFromIndexRoot(
                 indexNode);
 
         utility.addNodes();
 
         assertTrue(statIndexNode.exists());
 
+    }
+
+    @Test
+    public void testGetTopKNodeNotExists() {
+        List<TopKValues.ValueCountPair> empty =
+                StatisticsIndexHelper.getTopValues(
+                "jcr:isAbstract", getIndexRoot(nodeStore));
+
+        assertTrue(empty.isEmpty());
     }
 
     @Test
@@ -62,19 +73,16 @@ public class StatisticsIndexTest {
 
     @Test
     public void testPropertySketchIsStored() throws CommitFailedException {
-        NodeState indexNode = IndexReader.getIndexRoot(nodeStore);
-        NodeState statIndexNode =
-                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+        NodeState indexNode = getIndexRoot(nodeStore);
+        NodeState statIndexNode = StatisticsIndexHelper.getNodeFromIndexRoot(
                 indexNode);
 
         // no properties added so it should be empty
         assertFalse(statIndexNode.exists());
 
         utility.addNodes();
-        indexNode = IndexReader.getIndexRoot(nodeStore);
-        statIndexNode =
-                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
-                indexNode);
+        indexNode = getIndexRoot(nodeStore);
+        statIndexNode = StatisticsIndexHelper.getNodeFromIndexRoot(indexNode);
 
         // since we added *some* properties (note that it doesn't really matter
         // which ones) and re-read the index it should now exist.

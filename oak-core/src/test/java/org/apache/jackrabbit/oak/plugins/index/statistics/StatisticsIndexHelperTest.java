@@ -10,11 +10,14 @@ import org.junit.Test;
 
 import javax.jcr.NoSuchWorkspaceException;
 import javax.security.auth.login.LoginException;
+import java.util.List;
 
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getIndexRoot;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class StatisticsNodeHelperTest {
+public class StatisticsIndexHelperTest {
     NodeStore store;
     TestUtility utility;
 
@@ -26,29 +29,57 @@ public class StatisticsNodeHelperTest {
     }
 
     @Test
+    public void testGetCountStatNodeNotExists() {
+
+        // should return -1 as the statistics node does not exist.
+        long count = StatisticsIndexHelper.getCount("jcr:isAbstract",
+                                                    getIndexRoot(store));
+
+        assertEquals(-1, count);
+    }
+
+    @Test
+    public void testGetCount() throws CommitFailedException {
+        utility.addNodes();
+
+
+        long count = StatisticsIndexHelper.getCount("jcr:isAbstract",
+                                                    getIndexRoot(store));
+        assertTrue(count != -1);
+        assertTrue(count > 0);
+    }
+
+    @Test
+    public void testGetTopK() throws CommitFailedException {
+        utility.addNodes();
+        List<TopKValues.ValueCountPair> topValues =
+                StatisticsIndexHelper.getTopValues(
+                "jcr:isAbstract", getIndexRoot(store));
+
+        assertFalse(topValues.isEmpty());
+    }
+
+    @Test
     public void testFromProperty() throws CommitFailedException {
         utility.addNodes();
 
-        NodeState s = StatisticsNodeHelper.getPropertyNodeFromStatisticsIndex(
-                "jcr:isAbstract", store);
+        NodeState s = StatisticsIndexHelper.getPropertyNodeAtStatisticsIndex(
+                "jcr:isAbstract", getIndexRoot(store));
         assertTrue(s.exists());
     }
 
     @Test
     public void testGetStatisticsIndexNode() throws CommitFailedException {
-        NodeState indexNode = StatisticsNodeHelper.getIndexRoot(store);
-        NodeState statNode =
-                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+        NodeState indexNode = getIndexRoot(store);
+        NodeState statNode = StatisticsIndexHelper.getNodeFromIndexRoot(
                 indexNode);
 
         // no properties added so it should be empty
         assertFalse(statNode.exists());
 
         utility.addNodes();
-        indexNode = StatisticsNodeHelper.getIndexRoot(store);
-        statNode =
-                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
-                indexNode);
+        indexNode = getIndexRoot(store);
+        statNode = StatisticsIndexHelper.getNodeFromIndexRoot(indexNode);
 
         // since we added some properties and re-read the index it should now
         // exist. We don't verify that the properties actually exist as that
@@ -59,16 +90,15 @@ public class StatisticsNodeHelperTest {
     @Test
     public void testGetStringOrEmptyWithValidString() throws CommitFailedException {
         utility.addNodes();
-        NodeState indexNode = StatisticsNodeHelper.getIndexRoot(store);
-        NodeState statNodeIndex =
-                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+        NodeState indexNode = getIndexRoot(store);
+        NodeState statNodeIndex = StatisticsIndexHelper.getNodeFromIndexRoot(
                 indexNode);
 
         assertTrue(statNodeIndex.exists());
 
         // since some nodes have been added we know that a property sketch
         // has been created with at least one row
-        String val = StatisticsNodeHelper.getStringOrEmpty(
+        String val = StatisticsIndexHelper.getStringOrEmpty(
                 statNodeIndex.getChildNode("jcr:isAbstract"),
                 StatisticsEditor.VALUE_SKETCH_NAME + 0);
         assertFalse(val.isEmpty());
@@ -76,11 +106,9 @@ public class StatisticsNodeHelperTest {
 
     @Test
     public void testGetStatNodeWithNonExistentIndexRoot() {
-        NodeState indexRoot = StatisticsNodeHelper.getIndexRoot(store);
+        NodeState indexRoot = getIndexRoot(store);
         NodeState empty = indexRoot.getChildNode("DOES NOT EXIST");
-        NodeState stat =
-                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
-                empty);
+        NodeState stat = StatisticsIndexHelper.getNodeFromIndexRoot(empty);
 
         assertFalse(stat.exists());
     }
@@ -95,8 +123,7 @@ public class StatisticsNodeHelperTest {
 
         NodeState indexRoot = indexRootBuilder.getNodeState();
 
-        NodeState result =
-                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+        NodeState result = StatisticsIndexHelper.getNodeFromIndexRoot(
                 indexRoot);
 
         assertFalse(result.exists());
@@ -112,8 +139,7 @@ public class StatisticsNodeHelperTest {
                         .setProperty("type", "INVALID");
         NodeState indexRoot = indexRootBuilder.getNodeState();
 
-        NodeState result =
-                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+        NodeState result = StatisticsIndexHelper.getNodeFromIndexRoot(
                 indexRoot);
 
         assertFalse(result.exists());
