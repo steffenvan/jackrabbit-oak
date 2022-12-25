@@ -2,6 +2,7 @@ package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 
 import org.apache.jackrabbit.oak.api.jmx.Description;
 import org.apache.jackrabbit.oak.api.jmx.Name;
+import org.apache.jackrabbit.oak.plugins.index.statistics.PropertyStatistics;
 import org.apache.jackrabbit.oak.plugins.index.statistics.TopKValues;
 
 import java.util.List;
@@ -19,8 +20,11 @@ public interface ContentStatisticsMBean {
      * @param propertyName - the string representation of the property
      * @return a single EstimationResult object that wraps the
      */
-    @Description("Returns the statistical information of a single property. " + "This includes the estimated count, cardinality, average value " + "length, top K most frequent values and more.")
-    Optional<EstimationResult> getSinglePropertyEstimation(
+    @Description(
+            "Returns the statistical information of a single property. " +
+                    "This includes the estimated count, cardinality, average "
+                    + "value " + "length, top K most frequent values and more.")
+    Optional<PropertyStatistics> getSinglePropertyEstimation(
             @Description("The property name (e.g jcr:primaryType)") @Name(
                     "name") String propertyName);
 
@@ -30,8 +34,12 @@ public interface ContentStatisticsMBean {
      * @return each indexed property and their corresponding statistics
      * information as valid JSON.
      */
-    @Description("Returns the statistical information of all properties in " + "the repository. This includes the estimated count, cardinality, " + "average value length, top K most frequent values and more.")
-    List<EstimationResult> getAllPropertiesEstimation();
+    @Description(
+            "Returns the statistical information of all properties in " +
+                    "the repository. This includes the estimated count, " +
+                    "cardinality, " + "average value length, top K most " +
+                    "frequent values and more.")
+    List<PropertyStatistics> getAllPropertyStatistics();
 
     /**
      * This is added in addition to the list of EstimationResults, as we might
@@ -39,8 +47,9 @@ public interface ContentStatisticsMBean {
      *
      * @return the set of indexed property names in the repository.
      */
-    @Description("Returns the all the indexed property names of the " +
-            "repository.")
+    @Description(
+            "Returns the all the indexed property names of the " +
+                    "repository.")
     Set<String> getIndexedPropertyNames();
 
     /**
@@ -53,8 +62,9 @@ public interface ContentStatisticsMBean {
      *                  or "counter"
      * @return the set of property names as strings that are stored under
      */
-    @Description("Returns the properties of the specified index (where " +
-            "indexName could e.g be socialLucene)")
+    @Description(
+            "Returns the properties of the specified index (where " +
+                    "indexName could e.g be socialLucene)")
     Set<String> getPropertyNamesForSingleIndex(
             @Description("The index name") String indexName);
 
@@ -70,8 +80,10 @@ public interface ContentStatisticsMBean {
      * @return a list of ValueCountPair (valueName, count) of the top k most
      * frequent values.
      */
-    @Description("Returns the top K values for the specified property, where "
-            + "k = min(k, 5) (as k = 5 is the repository's default value).")
+    @Description(
+            "Returns the top K values for the specified property, where " +
+                    "k = min(k, 5) (as k = 5 is the repository's default " +
+                    "value).")
     List<TopKValues.ValueCountPair> getTopKValuesForProperty(
             String propertyName, int k);
 
@@ -87,7 +99,9 @@ public interface ContentStatisticsMBean {
      * @return a list of the top k values and what fraction they make out of the
      * estimated count of that property.
      */
-    @Description("Returns the percentage each of the top K values make out " + "of" + " all the values of the specified property and what " + "percentage " + "all the top K values make out of the property.")
+    @Description(
+            "Returns the percentage each of the top K values make out " + "of"
+                    + " all the values of the specified property and what " + "percentage " + "all the top K values make out of the property.")
     List<TopKValues.ProportionInfo> getValueProportionInfoForSingleProperty(
             String propertyName);
 }

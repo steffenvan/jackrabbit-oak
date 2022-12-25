@@ -250,7 +250,7 @@ public class StatisticsEditor implements Editor {
 
         if (ps.isEmpty()) {
             ps = PropertyStatistics.fromPropertyNode(name,
-                                                     IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+                                                     StatisticsIndexHelper.getNodeFromIndexRoot(
                                                              root.root.getChildNode(
                                                                      IndexConstants.INDEX_DEFINITIONS_NAME)));
             if (ps.isEmpty()) {

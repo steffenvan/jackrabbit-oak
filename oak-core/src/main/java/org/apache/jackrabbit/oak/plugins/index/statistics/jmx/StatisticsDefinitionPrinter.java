@@ -5,7 +5,6 @@ import org.apache.felix.inventory.InventoryPrinter;
 import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
 import org.apache.jackrabbit.oak.json.Base64BlobSerializer;
 import org.apache.jackrabbit.oak.json.JsonSerializer;
-import org.apache.jackrabbit.oak.plugins.index.statistics.IndexReader;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditorProvider;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
@@ -14,6 +13,8 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
 import java.io.PrintWriter;
+
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getIndexRoot;
 
 /**
  * Helper class to convert the statistics index into well-formatted JSON. Used
@@ -39,11 +40,10 @@ public class StatisticsDefinitionPrinter implements InventoryPrinter {
         if (format == Format.JSON) {
             JsopBuilder json = new JsopBuilder();
 
-            // oak:index/statistics/index
-            NodeState statisticsNode = IndexReader.getIndexRoot(nodeStore)
-                                                  .getChildNode(
-                                                          StatisticsEditorProvider.TYPE)
-                                                  .getChildNode("index");
+            // oak:index/statistics/index TODO: change this when we hide the
+            //  index
+            NodeState statisticsNode = getIndexRoot(nodeStore).getChildNode(
+                    StatisticsEditorProvider.TYPE).getChildNode("index");
 
             if (statisticsNode.hasChildNode(StatisticsEditor.PROPERTIES)) {
                 createSerializer(json).serialize(statisticsNode);

@@ -1,32 +1,24 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
-import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
+import org.apache.jackrabbit.oak.api.PropertyState;
+import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.ContentStatistics;
 import org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
-import org.apache.jackrabbit.oak.spi.state.NodeStore;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
+import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
 import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getString;
 
 /**
  * Represents a set of utility functions that makes it easier to read the
  * oak:index node and the statistics index node.
  */
-public class StatisticsNodeHelper {
+public class StatisticsIndexHelper {
     public static String getStringOrEmpty(NodeState nodeState, String name) {
         return Optional.ofNullable(getString(nodeState, name)).orElse("");
-    }
-
-    /**
-     * Gets the root node of all indexes: oak:index.
-     *
-     * @param store the relevant NodeStore
-     * @return the oak:index node from the provided NodeStore
-     */
-    public static NodeState getIndexRoot(NodeStore store) {
-        return store.getRoot()
-                    .getChildNode(IndexConstants.INDEX_DEFINITIONS_NAME);
     }
 
     /**
@@ -35,29 +27,70 @@ public class StatisticsNodeHelper {
      * called from the jmx bean.
      *
      * @param propertyName the name of the desired property
-     * @param store        the store associated with the jmx bean
+     * @param indexRoot    the oak:index node
      * @return the property stored under
      * oak:index/statistics/index/properties/{@code propertyName} if it exists.
      * Otherwise, a missing NodeState.
      */
-    public static NodeState getPropertyNodeFromStatisticsIndex(
-            String propertyName, NodeStore store) {
+    public static NodeState getPropertyNodeAtStatisticsIndex(
+            String propertyName, NodeState indexRoot) {
 
-        return getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
-                getIndexRoot(store)).getChildNode(propertyName);
+        return getNodeFromIndexRoot(indexRoot).getChildNode(propertyName);
     }
 
     /**
-     * Gets an indexed property. It assumes that the property is stored at
-     * oak:index/{@code indexName}
+     * Gets the estimated count of the property
      *
-     * @param indexName the indexed property name
-     * @param store     the relevant nodeStore
-     * @return the indexed property node if it is indexed. Else a missing node.
+     * @param propertyName the propertyName that we want to get the estimated
+     *                     count of
+     * @param oakIndexNode the node oak:index/
+     * @return the estimated CMS count of the property if the property exists.
+     * Else -1.
      */
-    public static NodeState getIndexedNodeFromName(String indexName,
-                                                   NodeStore store) {
-        return getIndexRoot(store).getChildNode(indexName);
+    public static long getCount(String propertyName, NodeState oakIndexNode) {
+        NodeState statNode = oakIndexNode.getChildNode(
+                StatisticsEditorProvider.TYPE).getChildNode("index");
+        if (!statNode.exists()) {
+            return -1;
+        }
+
+        CountMinSketch nameSketch = CountMinSketch.readCMS(statNode,
+                                                           StatisticsEditor.PROPERTY_CMS_NAME,
+                                                           StatisticsEditor.PROPERTY_CMS_ROWS_NAME,
+                                                           StatisticsEditor.PROPERTY_CMS_COLS_NAME,
+                                                           ContentStatistics.CS_LOG);
+
+        return nameSketch.estimateCount(Hash.hash64(propertyName.hashCode()));
+    }
+
+    /**
+     * Gets the top k values of a specific property
+     *
+     * @param propertyName the property for which to find the top k values
+     * @param oakIndexNode the oak:index node
+     * @return a list of the top K values of the properties if the property
+     * exists. Else an empty list.
+     */
+    public static List<TopKValues.ValueCountPair> getTopValues(
+            String propertyName, NodeState oakIndexNode) {
+        NodeState propNode = getPropertyNodeAtStatisticsIndex(propertyName,
+                                                              oakIndexNode);
+        if (!propNode.exists()) {
+            return Collections.emptyList();
+        }
+
+        PropertyState topKValueCounts = propNode.getProperty(
+                StatisticsEditor.PROPERTY_TOP_K_COUNT);
+        PropertyState topKValueNames = propNode.getProperty(
+                StatisticsEditor.PROPERTY_TOP_K_NAME);
+
+        int topK = Math.toIntExact(
+                getLong(propNode, StatisticsEditor.PROPERTY_TOP_K));
+
+        TopKValues topKValues = StatisticsEditor.readTopKElements(
+                topKValueNames, topKValueCounts, topK);
+
+        return topKValues.get();
     }
 
     /**
@@ -68,8 +101,7 @@ public class StatisticsNodeHelper {
      * oak:index/statistics/index/properties if it exists. Otherwise, an empty
      * NodeState
      */
-    public static NodeState getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
-            NodeState indexNode) {
+    public static NodeState getNodeFromIndexRoot(NodeState indexNode) {
         if (!indexNode.exists()) {
             return EmptyNodeState.MISSING_NODE;
         }
