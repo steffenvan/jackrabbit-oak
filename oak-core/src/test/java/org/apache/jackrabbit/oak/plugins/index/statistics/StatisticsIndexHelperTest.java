@@ -14,7 +14,7 @@ import javax.security.auth.login.LoginException;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class IndexReaderTest {
+public class StatisticsNodeHelperTest {
     NodeStore store;
     TestUtility utility;
 
@@ -29,24 +29,25 @@ public class IndexReaderTest {
     public void testFromProperty() throws CommitFailedException {
         utility.addNodes();
 
-        NodeState s = IndexReader.getPropertyNode("jcr:isAbstract", store);
+        NodeState s = StatisticsNodeHelper.getPropertyNodeFromStatisticsIndex(
+                "jcr:isAbstract", store);
         assertTrue(s.exists());
     }
 
     @Test
     public void testGetStatisticsIndexNode() throws CommitFailedException {
-        NodeState indexNode = IndexReader.getIndexRoot(store);
+        NodeState indexNode = StatisticsNodeHelper.getIndexRoot(store);
         NodeState statNode =
-                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 indexNode);
 
         // no properties added so it should be empty
         assertFalse(statNode.exists());
 
         utility.addNodes();
-        indexNode = IndexReader.getIndexRoot(store);
+        indexNode = StatisticsNodeHelper.getIndexRoot(store);
         statNode =
-                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 indexNode);
 
         // since we added some properties and re-read the index it should now
@@ -58,16 +59,16 @@ public class IndexReaderTest {
     @Test
     public void testGetStringOrEmptyWithValidString() throws CommitFailedException {
         utility.addNodes();
-        NodeState indexNode = IndexReader.getIndexRoot(store);
+        NodeState indexNode = StatisticsNodeHelper.getIndexRoot(store);
         NodeState statNodeIndex =
-                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 indexNode);
 
         assertTrue(statNodeIndex.exists());
 
         // since some nodes have been added we know that a property sketch
         // has been created with at least one row
-        String val = IndexReader.getStringOrEmpty(
+        String val = StatisticsNodeHelper.getStringOrEmpty(
                 statNodeIndex.getChildNode("jcr:isAbstract"),
                 StatisticsEditor.VALUE_SKETCH_NAME + 0);
         assertFalse(val.isEmpty());
@@ -75,10 +76,10 @@ public class IndexReaderTest {
 
     @Test
     public void testGetStatNodeWithNonExistentIndexRoot() {
-        NodeState indexRoot = IndexReader.getIndexRoot(store);
+        NodeState indexRoot = StatisticsNodeHelper.getIndexRoot(store);
         NodeState empty = indexRoot.getChildNode("DOES NOT EXIST");
         NodeState stat =
-                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 empty);
 
         assertFalse(stat.exists());
@@ -95,7 +96,7 @@ public class IndexReaderTest {
         NodeState indexRoot = indexRootBuilder.getNodeState();
 
         NodeState result =
-                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 indexRoot);
 
         assertFalse(result.exists());
@@ -112,7 +113,7 @@ public class IndexReaderTest {
         NodeState indexRoot = indexRootBuilder.getNodeState();
 
         NodeState result =
-                IndexReader.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
+                StatisticsNodeHelper.getStatisticsIndexDataNodeOrMissingFromOakIndexPath(
                 indexRoot);
 
         assertFalse(result.exists());
