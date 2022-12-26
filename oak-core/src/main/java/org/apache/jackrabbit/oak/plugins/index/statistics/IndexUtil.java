@@ -35,27 +35,25 @@ public class IndexUtil {
      */
     public static Set<String> getNames(NodeState nodeState) {
         Set<String> names = new TreeSet<>();
-        if (nodeState.hasChildNode(INDEX_RULES)) {
-            NodeState propertiesChildOfIndexNode = getPropertiesNode(
-                    nodeState.getChildNode(INDEX_RULES));
-            if (propertiesChildOfIndexNode.exists()) {
-                for (ChildNodeEntry ce :
-                        propertiesChildOfIndexNode.getChildNodeEntries()) {
-                    NodeState childNode = ce.getNodeState();
-                    if (hasValidPropertyNameNode(childNode)) {
-                        String propertyName;
-                        // we assume that this (property) node either has a
-                        // property named: "name" or "properties"
-                        if (childNode.hasProperty(PROPERTY_NAME)) {
-                            propertyName = parse(
-                                    getStringOrEmpty(childNode, PROPERTY_NAME));
-                        } else {
-                            propertyName = parse(
-                                    getStringOrEmpty(childNode, PROPERTIES));
-                        }
-                        if (isValidPropertyName(propertyName)) {
-                            names.add(propertyName);
-                        }
+
+        NodeState childOfIndexRules = getPropertiesNode(nodeState);
+        if (childOfIndexRules.exists()) {
+
+            for (ChildNodeEntry ce : childOfIndexRules.getChildNodeEntries()) {
+                NodeState childNode = ce.getNodeState();
+                if (hasValidPropertyNameNode(childNode)) {
+                    String propertyName;
+                    // we assume that this (property) node either has a
+                    // property named: "name" or "properties"
+                    if (childNode.hasProperty(PROPERTY_NAME)) {
+                        propertyName = parse(
+                                getStringOrEmpty(childNode, PROPERTY_NAME));
+                    } else {
+                        propertyName = parse(
+                                getStringOrEmpty(childNode, PROPERTIES));
+                    }
+                    if (isValidPropertyName(propertyName)) {
+                        names.add(propertyName);
                     }
                 }
             }
@@ -105,6 +103,13 @@ public class IndexUtil {
         return regExp != null && regExp.getValue(Type.BOOLEAN);
     }
 
+    /**
+     * A property node is valid if it is not a regular expression and that it
+     * doesn't have a virtual property.
+     *
+     * @param nodeState the property node
+     * @return true if it has a valid property name. False otherwise.
+     */
     static boolean hasValidPropertyNameNode(NodeState nodeState) {
         return nodeState.exists() && (nodeState.hasProperty(
                 PROPERTY_NAME) || nodeState.hasProperty(
@@ -112,6 +117,14 @@ public class IndexUtil {
                 nodeState);
     }
 
+    /**
+     * Checks if a property node's "name" or "properties" property is
+     * ":nodeName"
+     *
+     * @param nodeState the property node
+     * @return true if the "name" or "properties" property is ":nodeName". false
+     * otherwise.
+     */
     static boolean hasVirtualProperty(NodeState nodeState) {
         return nodeState.hasProperty(
                 PROPERTY_NAME) && VIRTUAL_PROPERTY_NAME.equals(
@@ -121,9 +134,14 @@ public class IndexUtil {
                 getStringOrEmpty(nodeState, PROPERTIES));
     }
 
-    /*
-     starting from the "indexRule" node, we perform a simple DFS to find the
-     corresponding properties node of the index node.
+
+    /**
+     * Gets the "properties" node of an index. Sometimes the path to that node
+     * might look like oak:index/socialLucene/indexRules/.../properties, but not
+     * always.
+     *
+     * @param nodeState the specific index node
+     * @return the properties node of the specified index
      */
     private static NodeState getPropertiesNode(NodeState nodeState) {
         if (nodeState == null || !nodeState.exists()) {
@@ -132,6 +150,10 @@ public class IndexUtil {
 
         if (nodeState.hasChildNode(PROPERTIES)) {
             return nodeState.getChildNode(PROPERTIES);
+        }
+
+        if (nodeState.hasChildNode(INDEX_RULES)) {
+            return getPropertiesNode(nodeState.getChildNode(INDEX_RULES));
         }
 
         for (ChildNodeEntry c : nodeState.getChildNodeEntries()) {

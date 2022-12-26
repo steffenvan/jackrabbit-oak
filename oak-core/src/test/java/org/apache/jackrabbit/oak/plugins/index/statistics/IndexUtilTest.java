@@ -2,6 +2,7 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
+import org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
 import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
 import org.apache.jackrabbit.oak.spi.commit.EmptyHook;
@@ -17,6 +18,7 @@ import java.util.Set;
 
 import static org.apache.jackrabbit.oak.InitialContentHelper.INITIAL_CONTENT;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getIndexRoot;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getNames;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -25,18 +27,19 @@ public class IndexUtilTest {
 
     private final String INDEX_RULES = "indexRules";
     private final String PROP_NAME = "name";
-    private final NodeState root = INITIAL_CONTENT;
-    private final NodeBuilder rootBuilder = root.builder();
     TestUtility utility;
     NodeStore store;
+    private NodeState root;
+    private NodeBuilder rootBuilder;
 
     @Before
     public void before() throws NoSuchWorkspaceException, LoginException,
             CommitFailedException {
         store = new MemoryNodeStore();
+        root = INITIAL_CONTENT;
+        rootBuilder = root.builder();
         utility = new TestUtility(store, "statistics");
     }
-
 
     @Test
     public void getIndexedNode() throws CommitFailedException {
@@ -103,14 +106,34 @@ public class IndexUtilTest {
     }
 
     @Test
-    public void testGetNamesWithInvalidIndex() {
-        NodeState indexNode = getIndexRoot(store).getChildNode("statistics");
+    public void testShouldBeEmptyWithVirtualProperty() throws CommitFailedException {
+        // adding virtual property to node
+        addNodeWithProperty(":nodeName");
+
+        NodeState indexNode = getIndexRoot(store).getChildNode("testIndex");
+        Set<String> names = IndexUtil.getNames(indexNode);
+        assertTrue(names.isEmpty());
+    }
+
+    @Test
+    public void testGetProperty() throws CommitFailedException {
+        addNodeWithProperty("something");
+        NodeState indexNode = getIndexRoot(store).getChildNode("testIndex");
         Set<String> names = IndexUtil.getNames(indexNode);
         assertFalse(names.isEmpty());
     }
 
     @Test
-    public void testHasProperties() throws CommitFailedException {
+    public void testGetNamesWithInvalidNodeState() {
+        Set<String> names = getNames(null);
+        assertTrue(names.isEmpty());
+
+        names = getNames(EmptyNodeState.MISSING_NODE);
+        assertTrue(names.isEmpty());
+
+    }
+
+    private void addNodeWithProperty(String name) throws CommitFailedException {
         NodeBuilder testIndex = rootBuilder.child(
                                                    IndexConstants.INDEX_DEFINITIONS_NAME)
                                            .child("testIndex")
@@ -118,15 +141,11 @@ public class IndexUtilTest {
 
 
         rootBuilder.setProperty(PROP_NAME, "testIndex");
-        NodeBuilder name = testIndex.child("nt:hierarchyNode");
-        //        name.setProperty("properties", ":nodeName");
-        NodeBuilder foo = name.child("properties").child("foo");
-        //        foo.removeProperty("name");
-        foo.setProperty("properties", ":nodeName");
-        store.merge(rootBuilder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
+        NodeBuilder node = testIndex.child("nt:hierarchyNode");
+        NodeBuilder foo = node.child("properties").child("foo");
 
-        NodeState indexNode = getIndexRoot(store).getChildNode("testIndex");
-        Set<String> names = IndexUtil.getNames(indexNode);
-        assertFalse(names.isEmpty());
+        // a is a virtual property if the properties "property" is ":nodeName"
+        foo.setProperty("properties", name);
+        store.merge(rootBuilder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
     }
 }

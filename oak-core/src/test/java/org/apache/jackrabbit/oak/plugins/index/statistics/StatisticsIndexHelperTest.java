@@ -2,6 +2,8 @@ package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
+import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
+import org.apache.jackrabbit.oak.spi.commit.EmptyHook;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
@@ -137,6 +139,27 @@ public class StatisticsIndexHelperTest {
         // set the type property to a value that is not "statistics"
         indexRootBuilder.getChildNode(StatisticsEditorProvider.TYPE)
                         .setProperty("type", "INVALID");
+        NodeState indexRoot = indexRootBuilder.getNodeState();
+
+        NodeState result = StatisticsIndexHelper.getNodeFromIndexRoot(
+                indexRoot);
+
+        assertFalse(result.exists());
+    }
+
+    @Test
+    public void testShouldReturnEmptyNode() throws CommitFailedException {
+        utility.addNodes();
+        NodeBuilder builder = store.getRoot().builder();
+        NodeBuilder indexRootBuilder = builder.getChildNode("oak:index");
+        boolean removed = builder.getChildNode("oak:index")
+                                 .getChildNode("statistics")
+                                 .getChildNode("index")
+                                 .getChildNode("properties")
+                                 .remove();
+
+        // remove the oak:index/statistics
+        store.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
         NodeState indexRoot = indexRootBuilder.getNodeState();
 
         NodeState result = StatisticsIndexHelper.getNodeFromIndexRoot(
