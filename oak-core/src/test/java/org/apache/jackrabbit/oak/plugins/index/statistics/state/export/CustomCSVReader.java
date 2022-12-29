@@ -16,6 +16,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * This class is used to read a csv file that queries. These could be from
+ * customers or self-generated. We use the IndexConfigGenerator to figure out
+ * the queries that would be queried and count the number of times they appear
+ * in the .csv file.
+ */
 public class CustomCSVReader {
     public final static String INDEX_RULES = "indexRules";
 
