@@ -1,5 +1,15 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics.state.export;
 
+import com.opencsv.CSVReader;
+import org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil;
+import org.apache.jackrabbit.oak.plugins.index.statistics.generator.IndexConfigGeneratorHelper;
+import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.ContentStatistics;
+import org.apache.jackrabbit.oak.plugins.index.statistics.state.export.CustomCSVReader.PropertyCount;
+import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
+import org.apache.jackrabbit.oak.spi.state.NodeState;
+import org.apache.jackrabbit.oak.spi.state.NodeStore;
+import org.junit.Before;
+
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Reader;
@@ -14,28 +24,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.jackrabbit.oak.plugins.index.statistics.generator.IndexConfigGeneratorHelper;
-import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.ContentStatistics;
-import org.apache.jackrabbit.oak.plugins.index.statistics.state.export.CustomCSVReader.PropertyCount;
-import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
-import org.apache.jackrabbit.oak.spi.state.NodeState;
-import org.apache.jackrabbit.oak.spi.state.NodeStore;
-import org.junit.Before;
-import org.junit.Test;
-
-import com.opencsv.CSVReader;
-
 public class CustomCSVReaderTest {
     public final static String INDEX_RULES = "indexRules";
 
     private NodeStore store;
     private ContentStatistics cs;
-
-    @Before
-    public void before() throws Exception {
-        this.store = new MemoryNodeStore();
-        this.cs = new ContentStatistics(store);
-    }
 
     public static List<String> readLineByLine(Path filePath) throws Exception {
         List<String> list = new ArrayList<>();
@@ -44,9 +37,14 @@ public class CustomCSVReaderTest {
                 String[] line;
                 while ((line = csvReader.readNext()) != null) {
                     line[0] = line[0].replaceAll("\\$[a-zA-Z]+", "'x'");
-                    line[0] = line[0].replace("CAST('x' AS DATE)", "CAST('2022-07-01T20:00:00.000' AS DATE)");
-                    line[0] = line[0].replace("cast('x' as date)", "cast('2022-07-01T20:00:00.000' as date)");
-                    line[0] = line[0].replace("CAST('x' AS BOOLEAN)", "CAST('TRUE' AS BOOLEAN)");
+                    line[0] = line[0].replace("CAST('x' AS DATE)",
+                                              "CAST('2022-07-01T20:00:00" +
+                                                      ".000'" + " AS DATE)");
+                    line[0] = line[0].replace("cast('x' as date)",
+                                              "cast('2022-07-01T20:00:00" +
+                                                      ".000'" + " as date)");
+                    line[0] = line[0].replace("CAST('x' AS BOOLEAN)",
+                                              "CAST('TRUE' AS BOOLEAN)");
                     line[0] = line[0].replace(", 'x'", ", '/x'");
                     line[0] = line[0].replace(",'x'", ", '/x'");
                     list.add(line[0]);
@@ -61,18 +59,26 @@ public class CustomCSVReaderTest {
 
         try (Writer writer = new FileWriter(filename, true)) {
             for (Map.Entry<String, Integer> entry : infos.entrySet()) {
-                writer.append(entry.getKey()).append(',').append(entry.getValue().toString()).append(eol);
+                writer.append(entry.getKey())
+                      .append(',')
+                      .append(entry.getValue().toString())
+                      .append(eol);
             }
         } catch (IOException ex) {
             ex.printStackTrace(System.err);
         }
     }
 
-    @Test
+    @Before
+    public void before() throws Exception {
+        this.store = new MemoryNodeStore();
+        this.cs = new ContentStatistics(store);
+    }
+
     public void test() throws Exception {
         // hard coded path to the CSV file that contains the queries from Splunk
         Path path = Paths.get(
-                "/Users/steffenvan/aem/jackrabbit-oak/oak-core/src/test/java/org/apache/jackrabbit/oak/plugins/index/statistics/state/export/queries.csv");
+                "/Users/steffenvan/aem/jackrabbit-oak/oak-core/src/test/java" + "/org/apache/jackrabbit/oak/plugins/index/statistics" + "/state/export/queries.csv");
 
         Map<String, Integer> allIndexCounts = new HashMap<>();
         List<String> failedQueries = new ArrayList<>();
@@ -82,7 +88,7 @@ public class CustomCSVReaderTest {
         for (String q : queries) {
             NodeState nodeState = IndexConfigGeneratorHelper.getIndexConfig(q);
             if (nodeState.hasChildNode(INDEX_RULES)) {
-                Set<String> properties = cs.getPropertyNamesForIndexNode(nodeState);
+                Set<String> properties = IndexUtil.getNames(nodeState);
                 for (String s : properties) {
                     allIndexCounts.merge(s, 1, Integer::sum);
                 }
@@ -96,10 +102,10 @@ public class CustomCSVReaderTest {
         counts.sort(Comparator.comparing(PropertyCount::getCount).reversed());
         System.out.println(counts);
         System.out.println(allIndexCounts);
-//        System.out.println(failedQueries.size());
-//        String filename = "/Users/steffenvan/Documents/output.csv";
+        //        System.out.println(failedQueries.size());
+        //        String filename = "/Users/steffenvan/Documents/output.csv";
 
-//        mapToCSV(allIndexCounts, filename);
-//      System.out.println(allIndexCounts);
+        //        mapToCSV(allIndexCounts, filename);
+        //      System.out.println(allIndexCounts);
     }
 }

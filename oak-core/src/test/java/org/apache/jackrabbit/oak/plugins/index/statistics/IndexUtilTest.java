@@ -1,7 +1,6 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
-import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
 import org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
 import org.apache.jackrabbit.oak.spi.commit.CommitInfo;
@@ -19,14 +18,13 @@ import java.util.Set;
 import static org.apache.jackrabbit.oak.InitialContentHelper.INITIAL_CONTENT;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getIndexRoot;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getNames;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.TestUtility.createTestIndex;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.TestUtility.setProperty;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class IndexUtilTest {
-
-    private final String INDEX_RULES = "indexRules";
-    private final String PROP_NAME = "name";
     TestUtility utility;
     NodeStore store;
     private NodeState root;
@@ -53,7 +51,7 @@ public class IndexUtilTest {
 
     @Test
     public void testParse() {
-        String s = "very/long/path/";
+        String s = "some/arbitrary/path";
         String res = IndexUtil.parse(s);
         assertEquals("path", res);
 
@@ -67,16 +65,8 @@ public class IndexUtilTest {
 
     @Test
     public void testGetNamesValidNode() throws CommitFailedException {
-        NodeBuilder testIndex = rootBuilder.child(
-                                                   IndexConstants.INDEX_DEFINITIONS_NAME)
-                                           .child("testIndex")
-                                           .child(INDEX_RULES);
-
-
-        rootBuilder.setProperty(PROP_NAME, "testIndex");
-        NodeBuilder name = testIndex.child("nt:hierarchyNode");
-        name.setProperty("name", "foo");
-        name.child("properties").child("foo").setProperty("name", "foo");
+        NodeBuilder testIndex = createTestIndex("testIndex", rootBuilder);
+        setProperty(testIndex, "properties/foo", "name", "foo");
         store.merge(rootBuilder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
 
         // now we have created a test index that is similar in structure as
@@ -88,13 +78,7 @@ public class IndexUtilTest {
 
     @Test
     public void testGetNamesMissingNode() throws CommitFailedException {
-        NodeBuilder testIndex = rootBuilder.child(
-                                                   IndexConstants.INDEX_DEFINITIONS_NAME)
-                                           .child("testIndex")
-                                           .child(INDEX_RULES);
-
-
-        rootBuilder.setProperty(PROP_NAME, "testIndex");
+        NodeBuilder testIndex = createTestIndex("testIndex", rootBuilder);
         testIndex.child("nt:hierarchyNode");
         store.merge(rootBuilder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
 
@@ -108,7 +92,7 @@ public class IndexUtilTest {
     @Test
     public void testShouldBeEmptyWithVirtualProperty() throws CommitFailedException {
         // adding virtual property to node
-        addNodeWithProperty(":nodeName");
+        TestUtility.addNodeWithProperty(":nodeName", rootBuilder, store);
 
         NodeState indexNode = getIndexRoot(store).getChildNode("testIndex");
         Set<String> names = IndexUtil.getNames(indexNode);
@@ -117,7 +101,7 @@ public class IndexUtilTest {
 
     @Test
     public void testGetProperty() throws CommitFailedException {
-        addNodeWithProperty("something");
+        TestUtility.addNodeWithProperty("something", rootBuilder, store);
         NodeState indexNode = getIndexRoot(store).getChildNode("testIndex");
         Set<String> names = IndexUtil.getNames(indexNode);
         assertFalse(names.isEmpty());
@@ -131,21 +115,5 @@ public class IndexUtilTest {
         names = getNames(EmptyNodeState.MISSING_NODE);
         assertTrue(names.isEmpty());
 
-    }
-
-    private void addNodeWithProperty(String name) throws CommitFailedException {
-        NodeBuilder testIndex = rootBuilder.child(
-                                                   IndexConstants.INDEX_DEFINITIONS_NAME)
-                                           .child("testIndex")
-                                           .child(INDEX_RULES);
-
-
-        rootBuilder.setProperty(PROP_NAME, "testIndex");
-        NodeBuilder node = testIndex.child("nt:hierarchyNode");
-        NodeBuilder foo = node.child("properties").child("foo");
-
-        // a is a virtual property if the properties "property" is ":nodeName"
-        foo.setProperty("properties", name);
-        store.merge(rootBuilder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
     }
 }

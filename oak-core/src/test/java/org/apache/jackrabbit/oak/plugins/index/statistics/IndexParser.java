@@ -12,10 +12,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-class IndexReader {
+class IndexParser {
     private final List<PropertyStatistics> PropertyStatisticss;
 
-    IndexReader(List<PropertyStatistics> results) {
+    IndexParser(List<PropertyStatistics> results) {
         this.PropertyStatisticss = results;
     }
 
@@ -37,7 +37,7 @@ class IndexReader {
         //        String[] t = (String[]) test;
         List<PropertyStatistics> results = new ArrayList<>();
         System.out.println(test.charAt(0));
-        IndexReader ir = new IndexReader(results);
+        IndexParser ir = new IndexParser(results);
         ir.process(children);
     }
 

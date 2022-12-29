@@ -7,6 +7,7 @@ import org.apache.jackrabbit.oak.api.CommitFailedException;
 import org.apache.jackrabbit.oak.api.ContentSession;
 import org.apache.jackrabbit.oak.api.Root;
 import org.apache.jackrabbit.oak.api.Tree;
+import org.apache.jackrabbit.oak.commons.PathUtils;
 import org.apache.jackrabbit.oak.plugins.index.AsyncIndexUpdate;
 import org.apache.jackrabbit.oak.plugins.index.IndexConstants;
 import org.apache.jackrabbit.oak.plugins.index.IndexUtils;
@@ -29,14 +30,16 @@ import java.util.function.Predicate;
 import static org.apache.jackrabbit.oak.api.Type.NAME;
 import static org.apache.jackrabbit.oak.plugins.index.IndexConstants.INDEX_DEFINITIONS_NODE_TYPE;
 import static org.apache.jackrabbit.oak.plugins.index.IndexConstants.TYPE_PROPERTY_NAME;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.state.export.CustomCSVReaderTest.INDEX_RULES;
 import static org.junit.Assert.assertNotNull;
 
 public class TestUtility {
 
+    private static final String PROP_NAME = "properties";
     private final NodeStore store;
     private final Whiteboard wb;
-    private final Root root;
     private final String indexName;
+    private Root root;
 
     TestUtility(NodeStore store,
                 String indexName) throws CommitFailedException,
@@ -58,6 +61,40 @@ public class TestUtility {
                     .getChildNode(StatisticsEditorProvider.TYPE)
                     .getChildNode(StatisticsEditor.DATA_NODE_NAME)
                     .getChildNode(StatisticsEditor.PROPERTIES);
+    }
+
+    public static NodeBuilder createTestIndex(String name,
+                                              NodeBuilder builder) {
+        return builder.child(IndexConstants.INDEX_DEFINITIONS_NAME)
+                      .child(name)
+                      .child(INDEX_RULES)
+                      .setProperty(PROP_NAME, name);
+    }
+
+    static void setProperty(NodeBuilder builder, String path, String name,
+                            String value) {
+        for (String p : PathUtils.elements(path)) {
+            builder = builder.child(p);
+        }
+        builder.setProperty(name, value);
+    }
+
+    /**
+     * Adds a node at the path
+     * "oak:index/testIndex/indexRules/properties/{@code name}" and sets the
+     * "properties" property of that node to {@code name}.
+     *
+     * @param name    the property name
+     * @param builder test class builder
+     * @param store   test class store
+     * @throws CommitFailedException if something fails in updating the node
+     */
+    static void addNodeWithProperty(String name, NodeBuilder builder,
+                                    NodeStore store) throws CommitFailedException {
+        NodeBuilder testIndex = createTestIndex("testIndex", builder);
+        setProperty(testIndex, "nt:hierarchyNode/properties/foo", "properties",
+                    name);
+        store.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
     }
 
     Tree getIndexNodeTree() {
