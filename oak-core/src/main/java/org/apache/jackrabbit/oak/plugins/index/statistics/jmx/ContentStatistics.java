@@ -3,6 +3,8 @@ package org.apache.jackrabbit.oak.plugins.index.statistics.jmx;
 import org.apache.jackrabbit.oak.commons.jmx.AnnotatedStandardMBean;
 import org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil;
 import org.apache.jackrabbit.oak.plugins.index.statistics.PropertyStatistics;
+import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor;
+import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditorProvider;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsIndexHelper;
 import org.apache.jackrabbit.oak.plugins.index.statistics.TopKValues;
 import org.apache.jackrabbit.oak.spi.state.ChildNodeEntry;
@@ -21,7 +23,7 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getIndexRoot;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTIES;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getNames;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsIndexHelper.getNodeFromIndexRoot;
 
 public class ContentStatistics extends AnnotatedStandardMBean implements ContentStatisticsMBean {
@@ -39,9 +41,9 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     @Override
     public Optional<PropertyStatistics> getSinglePropertyEstimation(
             String name) {
-
         NodeState dataNode = StatisticsIndexHelper.getNodeFromIndexRoot(
                 getIndexRoot(store));
+
         return PropertyStatistics.fromPropertyNode(name, dataNode);
     }
 
@@ -57,8 +59,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         List<PropertyStatistics> propStats = new ArrayList<>();
 
         for (ChildNodeEntry child : propNode.getChildNodeEntries()) {
-            Optional<PropertyStatistics> ps =
-                    PropertyStatistics.fromPropertyNode(
+            Optional<PropertyStatistics> ps = PropertyStatistics.fromPropertyNode(
                     child.getName(), propNode);
             ps.ifPresent(propStats::add);
 
@@ -81,7 +82,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
             // TODO: this will take 2 * n iterations. Should we pass the set
             //  in as a
             // reference and update it directly to reduce it to n iterations?
-            indexedPropertyNames.addAll(getPropertyNamesForIndexNode(child));
+            indexedPropertyNames.addAll(getNames(child));
         }
 
         return indexedPropertyNames;
@@ -99,18 +100,18 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
         return StatisticsIndexHelper.getTopValues(name, getIndexRoot(store));
     }
 
-    private List<TopKValues.ProportionInfo> getProportionalInfoForSingleProperty(
+    private List<TopKValues.ProportionInfo> getProportionInfoForSingleProperty(
             String propertyName) {
 
         Optional<PropertyStatistics> ps = PropertyStatistics.fromPropertyNode(
-                propertyName, getIndexRoot(store));
-        if (ps.isEmpty()) {
+                propertyName, StatisticsIndexHelper.getNodeFromIndexRoot(
+                        getIndexRoot(store)));
+        if (!ps.isPresent()) {
             return Collections.emptyList();
         }
 
         PropertyStatistics propStats = ps.get();
-        List<TopKValues.ValueCountPair> topK =
-                propStats.getTopKValuesDescending();
+        List<TopKValues.ValueCountPair> topK = propStats.getTopKValuesDescending();
         List<TopKValues.ProportionInfo> proportionInfo = new ArrayList<>();
 
         long totalCount = StatisticsIndexHelper.getCount(propertyName,
@@ -134,22 +135,23 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     @Override
     public List<TopKValues.ProportionInfo> getValueProportionInfoForSingleProperty(
             String propertyName) {
-        return getProportionalInfoForSingleProperty(propertyName);
+        return getProportionInfoForSingleProperty(propertyName);
     }
 
     @Override
     public List<List<TopKValues.ProportionInfo>> getProportionInfoForIndexedProperties() {
         NodeState indexNode = getIndexRoot(store);
         List<List<TopKValues.ProportionInfo>> propInfo = new ArrayList<>();
-
-        for (ChildNodeEntry child : indexNode.getChildNode(PROPERTIES)
-                                             .getChildNodeEntries()) {
-            propInfo.add(getProportionalInfoForSingleProperty(child.getName()));
+        Iterable<? extends ChildNodeEntry> propertyNode = indexNode.getChildNode(
+                                                                           StatisticsEditorProvider.TYPE)
+                                                                   .getChildNode(
+                                                                           "index")
+                                                                   .getChildNode(
+                                                                           StatisticsEditor.PROPERTIES)
+                                                                   .getChildNodeEntries();
+        for (ChildNodeEntry child : propertyNode) {
+            propInfo.add(getProportionInfoForSingleProperty(child.getName()));
         }
         return propInfo;
-    }
-
-    public Set<String> getPropertyNamesForIndexNode(NodeState nodeState) {
-        return IndexUtil.getNames(nodeState);
     }
 }

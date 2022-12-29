@@ -64,7 +64,10 @@ public class PropertyStatistics {
      *                     from
      * @param propertyNode the propertyNode node stored at the path
      *                     oak:index/statistics/index/properties/
-     * @return A PropertyStatistics that contains the stored or default values.
+     * @return A PropertyStatistics object that contains the indexed values. If
+     * one (or several) of the values are invalid, it will input the respective
+     * default value in its place. If the node doesn't exist it will return an
+     * empty Optional.
      */
     public static Optional<PropertyStatistics> fromPropertyNode(String name,
                                                                 NodeState propertyNode) {

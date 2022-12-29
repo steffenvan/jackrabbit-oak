@@ -21,18 +21,19 @@ import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getIn
  * when we want to print out the index with oak-run.
  */
 @Component(service = InventoryPrinter.class,
-           property = {"felix.inventory" + ".printer.name=oak-statistics",
-                   "felix.inventory.printer" + ".title" + "=Statistics Index"
-                   , "felix" + ".inventory.printer.format=JSON"})
+           property = {"felix.inventory" + ".printer.name=oak-statistics", "felix.inventory.printer" + ".title" + "=Statistics Index", "felix" + ".inventory.printer.format=JSON"})
 public class StatisticsDefinitionPrinter implements InventoryPrinter {
 
     @Reference
-    private final NodeStore nodeStore;
-    private String filter = "{\"properties\":[\"*\", \"-:childOrder\"]," +
-            "\"nodes\":[\"*\", \"-:*\"]}";
+    private NodeStore nodeStore;
+    private String filter = "{\"properties\":[\"*\", \"-:childOrder\"]," + "\"nodes\":[\"*\", \"-:*\"]}";
 
     public StatisticsDefinitionPrinter(NodeStore nodeStore) {
         this.nodeStore = nodeStore;
+    }
+
+    public StatisticsDefinitionPrinter() {
+        
     }
 
     @Override

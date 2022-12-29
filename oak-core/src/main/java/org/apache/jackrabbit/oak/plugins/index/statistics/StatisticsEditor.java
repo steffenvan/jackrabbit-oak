@@ -150,8 +150,7 @@ public class StatisticsEditor implements Editor {
         data.setProperty(PROPERTY_CMS_ROWS_NAME, propertyNameCMS.getRows());
         data.setProperty(PROPERTY_CMS_COLS_NAME, propertyNameCMS.getCols());
 
-        for (Map.Entry<String, PropertyStatistics> e :
-                propertyStatistics.entrySet()) {
+        for (Map.Entry<String, PropertyStatistics> e : propertyStatistics.entrySet()) {
             String propertyName = e.getKey();
             NodeBuilder statNode = properties.child(propertyName);
             PropertyStatistics propStats = e.getValue();
@@ -185,8 +184,7 @@ public class StatisticsEditor implements Editor {
             statNode.setProperty(VALUE_LENGTH_MIN,
                                  propStats.getValueLengthMin(), Type.LONG);
 
-            List<TopKValues.ValueCountPair> topKElements =
-                    propStats.getTopKValuesDescending();
+            List<TopKValues.ValueCountPair> topKElements = propStats.getTopKValuesDescending();
             if (!topKElements.isEmpty()) {
                 List<String> valueNames = getByFieldName(topKElements,
                                                          TopKValues.ValueCountPair::getValue);
@@ -248,12 +246,12 @@ public class StatisticsEditor implements Editor {
         Optional<PropertyStatistics> ps = Optional.ofNullable(
                 propertyStatistics.get(propertyName));
 
-        if (ps.isEmpty()) {
+        if (!ps.isPresent()) {
             ps = PropertyStatistics.fromPropertyNode(name,
                                                      StatisticsIndexHelper.getNodeFromIndexRoot(
                                                              root.root.getChildNode(
                                                                      IndexConstants.INDEX_DEFINITIONS_NAME)));
-            if (ps.isEmpty()) {
+            if (!ps.isPresent()) {
                 ps = Optional.of(new PropertyStatistics(propertyName, 0,
                                                         new HyperLogLog(
                                                                 DEFAULT_HLL_SIZE),
