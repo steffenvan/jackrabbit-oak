@@ -9,7 +9,6 @@ import org.apache.jackrabbit.oak.spi.commit.Editor;
 import org.apache.jackrabbit.oak.spi.nodetype.NodeTypeConstants;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,8 +40,8 @@ public class StatisticsEditor implements Editor {
     public static final String PROPERTY_CMS_NAME = "propertySketch";
     public static final String PROPERTY_HLL_NAME = "uniqueHLL";
     public static final String EXACT_COUNT = "count";
-    public static final String PROPERTY_TOP_K_NAME = "mostFrequentValueNames";
-    public static final String PROPERTY_TOP_K_COUNT = "mostFrequentValueCounts";
+    public static final String PROPERTY_TOP_K_VALUES = "mostFrequentValues";
+    public static final String PROPERTY_TOP_K_COUNT = "mostFrequentCounts";
 
     public static final String PROPERTY_TOP_K = "topK";
     public static final String PROPERTY_CMS_ROWS_NAME = "propertyCMSRows";
@@ -92,22 +91,6 @@ public class StatisticsEditor implements Editor {
     private static void setPrimaryType(NodeBuilder builder) {
         builder.setProperty(JCR_PRIMARYTYPE,
                             NodeTypeConstants.NT_OAK_UNSTRUCTURED, Type.NAME);
-    }
-
-    public static TopKValues readTopKElements(PropertyState valueNames,
-                                              PropertyState valueCounts,
-                                              int k) {
-        if (valueNames != null && valueCounts != null) {
-            @NotNull Iterable<String> valueNamesIter = valueNames.getValue(
-                    Type.STRINGS);
-            @NotNull Iterable<Long> valueCountsIter = valueCounts.getValue(
-                    Type.LONGS);
-
-            return TopKValues.createFromIndex(valueNamesIter, valueCountsIter,
-                                              k);
-        }
-
-        return new TopKValues(k);
     }
 
     static String getValueAsString(Object val) {
@@ -189,7 +172,7 @@ public class StatisticsEditor implements Editor {
                                                          TopKValues.ValueCountPair::getValue);
                 List<Long> valueCounts = getByFieldName(topKElements,
                                                         TopKValues.ValueCountPair::getCount);
-                statNode.setProperty(PROPERTY_TOP_K_NAME, valueNames,
+                statNode.setProperty(PROPERTY_TOP_K_VALUES, valueNames,
                                      Type.STRINGS);
                 statNode.setProperty(PROPERTY_TOP_K_COUNT, valueCounts,
                                      Type.LONGS);

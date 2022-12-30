@@ -1,6 +1,9 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
+import org.apache.jackrabbit.oak.api.PropertyState;
+import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.commons.json.JsopBuilder;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -54,6 +57,23 @@ public class TopKValues {
         }
 
         return topKValues;
+    }
+
+    public static TopKValues fromPropertyStates(PropertyState valueNames,
+                                                PropertyState valueCounts,
+                                                int k) {
+
+        if (valueNames != null && valueCounts != null) {
+            @NotNull Iterable<String> valueNamesIter = valueNames.getValue(
+                    Type.STRINGS);
+            @NotNull Iterable<Long> valueCountsIter = valueCounts.getValue(
+                    Type.LONGS);
+
+            return TopKValues.createFromIndex(valueNamesIter, valueCountsIter,
+                                              k);
+        }
+
+        return new TopKValues(k);
     }
 
     /**

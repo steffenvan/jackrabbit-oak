@@ -91,13 +91,11 @@ public class PropertyStatistics {
         byte[] hllData = HyperLogLog.deserialize(storedHll);
         HyperLogLog hll = new HyperLogLog(hllData.length, hllData);
 
-        int topK = Math.toIntExact(
-                getLong(dataNode, StatisticsEditor.PROPERTY_TOP_K));
-
-        TopKValues topKValues = StatisticsEditor.readTopKElements(
-                dataNode.getProperty(StatisticsEditor.PROPERTY_TOP_K_NAME),
+        TopKValues topKValues = TopKValues.fromPropertyStates(
+                dataNode.getProperty(StatisticsEditor.PROPERTY_TOP_K_VALUES),
                 dataNode.getProperty(StatisticsEditor.PROPERTY_TOP_K_COUNT),
-                topK);
+                Math.toIntExact(
+                        getLong(dataNode, StatisticsEditor.PROPERTY_TOP_K)));
 
 
         long valueLengthTotal = getLong(dataNode,

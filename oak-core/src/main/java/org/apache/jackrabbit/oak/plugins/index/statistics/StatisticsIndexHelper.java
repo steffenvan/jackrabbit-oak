@@ -79,18 +79,19 @@ public class StatisticsIndexHelper {
             return Collections.emptyList();
         }
 
-        PropertyState topKValueCounts = propNode.getProperty(
+        PropertyState topKCounts = propNode.getProperty(
                 StatisticsEditor.PROPERTY_TOP_K_COUNT);
-        PropertyState topKValueNames = propNode.getProperty(
-                StatisticsEditor.PROPERTY_TOP_K_NAME);
+        PropertyState topKValues = propNode.getProperty(
+                StatisticsEditor.PROPERTY_TOP_K_VALUES);
 
         int topK = Math.toIntExact(
                 getLong(propNode, StatisticsEditor.PROPERTY_TOP_K));
 
-        TopKValues topKValues = StatisticsEditor.readTopKElements(
-                topKValueNames, topKValueCounts, topK);
+        TopKValues topKElements = TopKValues.fromPropertyStates(topKValues,
+                                                                topKCounts,
+                                                                topK);
 
-        return topKValues.get();
+        return topKElements.get();
     }
 
     /**
