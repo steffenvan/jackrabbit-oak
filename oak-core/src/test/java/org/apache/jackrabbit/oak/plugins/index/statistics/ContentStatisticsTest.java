@@ -33,8 +33,7 @@ public class ContentStatisticsTest {
     private TestUtility testUtil;
 
     @Before
-    public void before() throws NoSuchWorkspaceException, LoginException,
-            CommitFailedException {
+    public void before() throws NoSuchWorkspaceException, LoginException, CommitFailedException {
         store = new MemoryNodeStore();
         testUtil = new TestUtility(store, "statistics");
         mbean = new ContentStatistics(store);
@@ -46,7 +45,7 @@ public class ContentStatisticsTest {
     public void testGetSinglePropertyEstimation() throws CommitFailedException {
         testUtil.addNodes();
         String property = "jcr:primaryType";
-        Optional<PropertyStatistics> actual = mbean.getSinglePropertyEstimation(
+        Optional<PropertyStatistics> actual = mbean.getSinglePropertyStatistics(
                 property);
 
         assertTrue(actual.isPresent());
@@ -92,8 +91,7 @@ public class ContentStatisticsTest {
     public void testTopKValues() {
         String prop = "jcr:primaryType";
 
-        List<TopKValues.ProportionInfo> actual =
-                mbean.getValueProportionInfoForSingleProperty(
+        List<TopKValues.ProportionInfo> actual = mbean.getValueProportionInfoForSingleProperty(
                 prop);
     }
 
@@ -102,14 +100,12 @@ public class ContentStatisticsTest {
         String prop = "jcr:primaryType";
         testUtil.addNodes();
 
-        List<TopKValues.ProportionInfo> actual =
-                mbean.getValueProportionInfoForSingleProperty(
+        List<TopKValues.ProportionInfo> actual = mbean.getValueProportionInfoForSingleProperty(
                 prop);
 
         assertFalse(actual.isEmpty());
 
-        List<List<TopKValues.ProportionInfo>> all =
-                mbean.getProportionInfoForIndexedProperties();
+        List<List<TopKValues.ProportionInfo>> all = mbean.getProportionInfoForIndexedProperties();
         assertFalse(all.isEmpty());
     }
 
@@ -119,7 +115,7 @@ public class ContentStatisticsTest {
         NodeBuilder testIndex = TestUtility.createTestIndex("testIndex",
                                                             rootBuilder);
         addNodeWithProperty("foo", rootBuilder, store);
-        Set<String> names = mbean.getPropertyNamesForSingleIndex("testIndex");
+        Set<String> names = mbean.getPropertiesOfSingleIndex("testIndex");
         assertFalse(names.isEmpty());
         assertEquals(1, names.size());
         assertTrue(names.contains("foo"));
@@ -128,8 +124,7 @@ public class ContentStatisticsTest {
     @Test
     public void getTopKValuesForSingleProperty() throws CommitFailedException {
         testUtil.addNodes();
-        List<TopKValues.ValueCountPair> topValues =
-                mbean.getTopKValuesForProperty(
+        List<TopKValues.ValueCountPair> topValues = mbean.getTopKValuesForProperty(
                 "jcr:primaryType", 5);
 
         assertFalse(topValues.isEmpty());

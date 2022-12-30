@@ -38,7 +38,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     }
 
     @Override
-    public Optional<PropertyStatistics> getSinglePropertyEstimation(
+    public Optional<PropertyStatistics> getSinglePropertyStatistics(
             String name) {
         NodeState dataNode = StatisticsIndexHelper.getNodeFromIndexRoot(
                 getIndexRoot(store));
@@ -88,7 +88,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
     }
 
     @Override
-    public Set<String> getPropertyNamesForSingleIndex(String name) {
+    public Set<String> getPropertiesOfSingleIndex(String name) {
         return IndexUtil.getPropertiesOf(
                 IndexUtil.getIndexedNodeFromName(name, store));
     }

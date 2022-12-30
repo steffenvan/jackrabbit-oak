@@ -21,10 +21,8 @@ public interface ContentStatisticsMBean {
      * @return a single EstimationResult object that wraps the
      */
     @Description(
-            "Returns the statistical information of a single property. " +
-                    "This includes the estimated count, cardinality, average "
-                    + "value " + "length, top K most frequent values and more.")
-    Optional<PropertyStatistics> getSinglePropertyEstimation(
+            "Returns the statistical information of a single property. " + "This includes the estimated count, cardinality, average " + "value " + "length, top K most frequent values and more.")
+    Optional<PropertyStatistics> getSinglePropertyStatistics(
             @Description("The property name (e.g jcr:primaryType)") @Name(
                     "name") String propertyName);
 
@@ -35,10 +33,7 @@ public interface ContentStatisticsMBean {
      * information as valid JSON.
      */
     @Description(
-            "Returns the statistical information of all properties in " +
-                    "the repository. This includes the estimated count, " +
-                    "cardinality, " + "average value length, top K most " +
-                    "frequent values and more.")
+            "Returns the statistical information of all indexed properties in " + "the repository. This includes the estimated count, " + "cardinality, " + "average value length, top K most " + "frequent values and more.")
     List<PropertyStatistics> getAllPropertyStatistics();
 
     /**
@@ -48,8 +43,7 @@ public interface ContentStatisticsMBean {
      * @return the set of indexed property names in the repository.
      */
     @Description(
-            "Returns the all the indexed property names of the " +
-                    "repository.")
+            "Returns the all the indexed property names of the " + "repository.")
     Set<String> getIndexedPropertyNames();
 
     /**
@@ -63,9 +57,8 @@ public interface ContentStatisticsMBean {
      * @return the set of property names as strings that are stored under
      */
     @Description(
-            "Returns the properties of the specified index (where " +
-                    "indexName could e.g be socialLucene)")
-    Set<String> getPropertyNamesForSingleIndex(
+            "Returns the properties of the specified index (where " + "indexName could e.g be socialLucene)")
+    Set<String> getPropertiesOfSingleIndex(
             @Description("The index name") String indexName);
 
     /**
@@ -81,9 +74,7 @@ public interface ContentStatisticsMBean {
      * frequent values.
      */
     @Description(
-            "Returns the top K values for the specified property, where " +
-                    "k = min(k, 5) (as k = 5 is the repository's default " +
-                    "value).")
+            "Returns the top K values for the specified property, where " + "k = min(k, 5) (as k = 5 is the repository's default " + "value).")
     List<TopKValues.ValueCountPair> getTopKValuesForProperty(
             String propertyName, int k);
 
@@ -100,8 +91,7 @@ public interface ContentStatisticsMBean {
      * estimated count of that property.
      */
     @Description(
-            "Returns the percentage each of the top K values make out " + "of"
-                    + " all the values of the specified property and what " + "percentage " + "all the top K values make out of the property.")
+            "Returns the percentage each of the top K values make out " + "of" + " all the values of the specified property and what " + "percentage " + "all the top K values make out of the property.")
     List<TopKValues.ProportionInfo> getValueProportionInfoForSingleProperty(
             String propertyName);
 }
