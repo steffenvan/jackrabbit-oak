@@ -168,15 +168,14 @@ public class StatisticsEditor implements Editor {
 
             List<TopKValues.ValueCountPair> topKElements = propStats.getTopKValuesDescending();
             if (!topKElements.isEmpty()) {
-                List<String> valueNames = getByFieldName(topKElements,
-                                                         TopKValues.ValueCountPair::getValue);
-                List<Long> valueCounts = getByFieldName(topKElements,
-                                                        TopKValues.ValueCountPair::getCount);
-                statNode.setProperty(PROPERTY_TOP_K_VALUES, valueNames,
+                List<String> values = getByFieldName(topKElements,
+                                                     TopKValues.ValueCountPair::getValue);
+                List<Long> counts = getByFieldName(topKElements,
+                                                   TopKValues.ValueCountPair::getCount);
+                statNode.setProperty(PROPERTY_TOP_K_VALUES, values,
                                      Type.STRINGS);
-                statNode.setProperty(PROPERTY_TOP_K_COUNT, valueCounts,
-                                     Type.LONGS);
-                statNode.setProperty(PROPERTY_TOP_K, (long) valueCounts.size(),
+                statNode.setProperty(PROPERTY_TOP_K_COUNT, counts, Type.LONGS);
+                statNode.setProperty(PROPERTY_TOP_K, (long) counts.size(),
                                      Type.LONG);
             }
         }
