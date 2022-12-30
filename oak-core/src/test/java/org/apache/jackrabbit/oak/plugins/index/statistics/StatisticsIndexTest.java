@@ -74,8 +74,7 @@ public class StatisticsIndexTest {
 
     @Test
     public void testEmptyTopK() {
-        TopKValues topKValues = StatisticsEditor.readTopKElements(null, null,
-                                                                  5);
+        TopKValues topKValues = TopKValues.fromPropertyStates(null, null, 5);
         assertTrue(topKValues.isEmpty());
     }
 
