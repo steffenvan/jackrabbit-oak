@@ -7,20 +7,14 @@ import org.apache.jackrabbit.oak.spi.state.NodeState;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
-import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getString;
 
 /**
  * Represents a set of utility functions that makes it easier to read the
- * oak:index node and the statistics index node.
+ * oak:index/statistics node.
  */
 public class StatisticsIndexHelper {
-    public static String getStringOrEmpty(NodeState nodeState, String name) {
-        return Optional.ofNullable(getString(nodeState, name)).orElse("");
-    }
-
     /**
      * Gets property stored at
      * oak:index/statistics/index/properties/{@code propertyName}. This is

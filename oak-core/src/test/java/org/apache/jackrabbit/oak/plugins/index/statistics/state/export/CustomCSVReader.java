@@ -36,7 +36,7 @@ public class CustomCSVReader {
         for (String q : queries) {
             NodeState nodeState = IndexConfigGeneratorHelper.getIndexConfig(q);
             if (nodeState.hasChildNode(INDEX_RULES)) {
-                Set<String> properties = IndexUtil.getNames(nodeState);
+                Set<String> properties = IndexUtil.getPropertiesOf(nodeState);
                 for (String s : properties) {
                     allIndexCounts.merge(s, 1, Integer::sum);
                 }

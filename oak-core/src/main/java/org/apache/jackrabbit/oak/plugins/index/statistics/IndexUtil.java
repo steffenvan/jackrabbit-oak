@@ -8,16 +8,25 @@ import org.apache.jackrabbit.oak.spi.state.ChildNodeEntry;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditor.PROPERTIES;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsIndexHelper.getStringOrEmpty;
+import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getString;
 
+/**
+ * Contains functionality to deal with nodes under oak:index a bit more
+ * generally than the StatisticsIndexHelper.
+ */
 public class IndexUtil {
     private static final String INDEX_RULES = "indexRules";
     private static final String PROPERTY_NAME = "name";
     private static final String VIRTUAL_PROPERTY_NAME = ":nodeName";
+    
+    public static String getStringOrEmpty(NodeState nodeState, String name) {
+        return Optional.ofNullable(getString(nodeState, name)).orElse("");
+    }
 
     /**
      * Gets the properties that are stored at an index. To find these properties
@@ -33,7 +42,7 @@ public class IndexUtil {
      *                  oak:index/counter, oak:index/socialLucene etc.
      * @return the properties that are indexed under the specified index node.
      */
-    public static Set<String> getNames(NodeState nodeState) {
+    public static Set<String> getPropertiesOf(NodeState nodeState) {
         Set<String> names = new TreeSet<>();
 
         NodeState childOfIndexRules = getPropertiesNode(nodeState);

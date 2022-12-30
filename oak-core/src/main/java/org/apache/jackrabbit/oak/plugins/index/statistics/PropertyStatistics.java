@@ -7,7 +7,7 @@ import org.apache.jackrabbit.oak.spi.state.NodeState;
 import java.util.List;
 import java.util.Optional;
 
-import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsIndexHelper.getStringOrEmpty;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getStringOrEmpty;
 import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
 
 /**

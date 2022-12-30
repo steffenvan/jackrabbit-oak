@@ -17,7 +17,7 @@ import java.util.Set;
 
 import static org.apache.jackrabbit.oak.InitialContentHelper.INITIAL_CONTENT;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getIndexRoot;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getNames;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getPropertiesOf;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.TestUtility.createTestIndex;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.TestUtility.setProperty;
 import static org.junit.Assert.assertEquals;
@@ -31,8 +31,7 @@ public class IndexUtilTest {
     private NodeBuilder rootBuilder;
 
     @Before
-    public void before() throws NoSuchWorkspaceException, LoginException,
-            CommitFailedException {
+    public void before() throws NoSuchWorkspaceException, LoginException, CommitFailedException {
         store = new MemoryNodeStore();
         root = INITIAL_CONTENT;
         rootBuilder = root.builder();
@@ -72,7 +71,7 @@ public class IndexUtilTest {
         // now we have created a test index that is similar in structure as
         // socialLucene etc.
         NodeState indexNode = getIndexRoot(store).getChildNode("testIndex");
-        Set<String> names = IndexUtil.getNames(indexNode);
+        Set<String> names = IndexUtil.getPropertiesOf(indexNode);
         assertFalse(names.isEmpty());
     }
 
@@ -85,7 +84,7 @@ public class IndexUtilTest {
         // at this point, the expected children of the node doesn't exists.
         // So it should return an empty list
         NodeState indexNode = getIndexRoot(store).getChildNode("testIndex");
-        Set<String> names = IndexUtil.getNames(indexNode);
+        Set<String> names = IndexUtil.getPropertiesOf(indexNode);
         assertTrue(names.isEmpty());
     }
 
@@ -95,7 +94,7 @@ public class IndexUtilTest {
         TestUtility.addNodeWithProperty(":nodeName", rootBuilder, store);
 
         NodeState indexNode = getIndexRoot(store).getChildNode("testIndex");
-        Set<String> names = IndexUtil.getNames(indexNode);
+        Set<String> names = IndexUtil.getPropertiesOf(indexNode);
         assertTrue(names.isEmpty());
     }
 
@@ -103,16 +102,16 @@ public class IndexUtilTest {
     public void testGetProperty() throws CommitFailedException {
         TestUtility.addNodeWithProperty("something", rootBuilder, store);
         NodeState indexNode = getIndexRoot(store).getChildNode("testIndex");
-        Set<String> names = IndexUtil.getNames(indexNode);
+        Set<String> names = IndexUtil.getPropertiesOf(indexNode);
         assertFalse(names.isEmpty());
     }
 
     @Test
     public void testGetNamesWithInvalidNodeState() {
-        Set<String> names = getNames(null);
+        Set<String> names = getPropertiesOf(null);
         assertTrue(names.isEmpty());
 
-        names = getNames(EmptyNodeState.MISSING_NODE);
+        names = getPropertiesOf(EmptyNodeState.MISSING_NODE);
         assertTrue(names.isEmpty());
 
     }

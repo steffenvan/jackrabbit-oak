@@ -23,7 +23,7 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getIndexRoot;
-import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getNames;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getPropertiesOf;
 import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsIndexHelper.getNodeFromIndexRoot;
 
 public class ContentStatistics extends AnnotatedStandardMBean implements ContentStatisticsMBean {
@@ -81,7 +81,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
             // TODO: this will take 2 * n iterations. Should we pass the set
             //  in as a
             // reference and update it directly to reduce it to n iterations?
-            indexedPropertyNames.addAll(getNames(child));
+            indexedPropertyNames.addAll(getPropertiesOf(child));
         }
 
         return indexedPropertyNames;
@@ -89,7 +89,7 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
     @Override
     public Set<String> getPropertyNamesForSingleIndex(String name) {
-        return IndexUtil.getNames(
+        return IndexUtil.getPropertiesOf(
                 IndexUtil.getIndexedNodeFromName(name, store));
     }
 

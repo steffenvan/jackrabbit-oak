@@ -24,8 +24,7 @@ public class StatisticsIndexHelperTest {
     TestUtility utility;
 
     @Before
-    public void before() throws CommitFailedException,
-            NoSuchWorkspaceException, LoginException {
+    public void before() throws CommitFailedException, NoSuchWorkspaceException, LoginException {
         store = new MemoryNodeStore();
         utility = new TestUtility(store, "statistics");
     }
@@ -54,8 +53,7 @@ public class StatisticsIndexHelperTest {
     @Test
     public void testGetTopK() throws CommitFailedException {
         utility.addNodes();
-        List<TopKValues.ValueCountPair> topValues =
-                StatisticsIndexHelper.getTopValues(
+        List<TopKValues.ValueCountPair> topValues = StatisticsIndexHelper.getTopValues(
                 "jcr:isAbstract", getIndexRoot(store));
 
         assertFalse(topValues.isEmpty());
@@ -100,7 +98,7 @@ public class StatisticsIndexHelperTest {
 
         // since some nodes have been added we know that a property sketch
         // has been created with at least one row
-        String val = StatisticsIndexHelper.getStringOrEmpty(
+        String val = IndexUtil.getStringOrEmpty(
                 statNodeIndex.getChildNode("jcr:isAbstract"),
                 StatisticsEditor.VALUE_SKETCH_NAME + 0);
         assertFalse(val.isEmpty());
