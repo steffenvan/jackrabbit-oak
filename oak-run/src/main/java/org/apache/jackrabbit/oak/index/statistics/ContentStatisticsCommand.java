@@ -18,11 +18,8 @@
  */
 package org.apache.jackrabbit.oak.index.statistics;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-
+import com.google.common.io.Closer;
+import joptsimple.OptionParser;
 import org.apache.felix.inventory.Format;
 import org.apache.jackrabbit.JcrConstants;
 import org.apache.jackrabbit.oak.api.CommitFailedException;
@@ -34,7 +31,6 @@ import org.apache.jackrabbit.oak.plugins.index.IndexUpdate;
 import org.apache.jackrabbit.oak.plugins.index.IndexUpdateCallback;
 import org.apache.jackrabbit.oak.plugins.index.NodeTraversalCallback;
 import org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditorProvider;
-import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.ContentStatistics;
 import org.apache.jackrabbit.oak.plugins.index.statistics.jmx.StatisticsDefinitionPrinter;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
 import org.apache.jackrabbit.oak.run.cli.CommonOptions;
@@ -52,15 +48,16 @@ import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.io.Closer;
-
-import joptsimple.OptionParser;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 
 public class ContentStatisticsCommand implements Command {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ContentStatisticsCommand.class);
-
     public static final String NAME = "content-statistics";
+    private static final Logger LOG = LoggerFactory.getLogger(
+            ContentStatisticsCommand.class);
     private final static String SUMMARY = "Build the content statistics for a repository";
     private static final String REINDEX_LANE = "offline-reindex-async";
 
@@ -77,7 +74,8 @@ public class ContentStatisticsCommand implements Command {
         opts.parseAndConfigure(parser, args);
         try {
             try (Closer closer = Closer.create()) {
-                NodeStoreFixture fixture = NodeStoreFixtureProvider.create(opts);
+                NodeStoreFixture fixture = NodeStoreFixtureProvider.create(
+                        opts);
                 closer.register(fixture);
                 execute(fixture);
             }
@@ -90,36 +88,34 @@ public class ContentStatisticsCommand implements Command {
         }
     }
 
-    private void execute(NodeStoreFixture fixture) throws CommitFailedException, IOException {
+    private void execute(
+            NodeStoreFixture fixture) throws CommitFailedException, IOException {
         MemoryNodeStore output = new MemoryNodeStore();
         NodeBuilder builder = output.getRoot().builder();
-        NodeBuilder statisticsIndex = builder.
-            child(IndexConstants.INDEX_DEFINITIONS_NAME).
-            child(ContentStatistics.STATISTICS_INDEX_NAME);
+        NodeBuilder statisticsIndex = builder.child(
+                                                     IndexConstants.INDEX_DEFINITIONS_NAME)
+                                             .child(StatisticsEditorProvider.TYPE);
         statisticsIndex.setProperty("type", "statistics");
         statisticsIndex.setProperty(JcrConstants.JCR_PRIMARYTYPE,
-                IndexConstants.INDEX_DEFINITIONS_NODE_TYPE, Type.NAME);
+                                    IndexConstants.INDEX_DEFINITIONS_NODE_TYPE,
+                                    Type.NAME);
         statisticsIndex.setProperty("async", REINDEX_LANE);
 
         StatisticsEditorProvider statistics = new StatisticsEditorProvider();
         Callback callback = new Callback();
-        IndexUpdate indexUpdate = new IndexUpdate(
-                statistics,
-                REINDEX_LANE,
-                output.getRoot(),
-                builder,
-                callback,
-                callback,
-                CommitInfo.EMPTY,
-                CorruptIndexHandler.NOOP
-        );
+        IndexUpdate indexUpdate = new IndexUpdate(statistics, REINDEX_LANE,
+                                                  output.getRoot(), builder,
+                                                  callback, callback,
+                                                  CommitInfo.EMPTY,
+                                                  CorruptIndexHandler.NOOP);
 
         NodeState before = output.getRoot();
         NodeState after = fixture.getStore().getRoot();
 
         EditorDiff.process(VisibleEditor.wrap(indexUpdate), before, after);
         output.merge(builder, EmptyHook.INSTANCE, CommitInfo.EMPTY);
-        StatisticsDefinitionPrinter printer = new StatisticsDefinitionPrinter(output);
+        StatisticsDefinitionPrinter printer = new StatisticsDefinitionPrinter(
+                output);
         // TODO write to a file
         String name = "statistics";
         String extension = ".json";
@@ -140,7 +136,8 @@ public class ContentStatisticsCommand implements Command {
     static class Callback implements IndexUpdateCallback, NodeTraversalCallback {
 
         @Override
-        public void traversedNode(PathSource arg0) throws CommitFailedException {
+        public void traversedNode(
+                PathSource arg0) throws CommitFailedException {
             // ignore
         }
 

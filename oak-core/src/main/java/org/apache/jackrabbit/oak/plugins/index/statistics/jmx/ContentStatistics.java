@@ -30,7 +30,6 @@ public class ContentStatistics extends AnnotatedStandardMBean implements Content
 
     public static final Logger CS_LOG = LoggerFactory.getLogger(
             ContentStatistics.class);
-    public static final String STATISTICS_INDEX_NAME = "statistics";
     private final NodeStore store;
 
     public ContentStatistics(NodeStore store) {
