@@ -32,10 +32,6 @@ public class StatisticsDefinitionPrinter implements InventoryPrinter {
         this.nodeStore = nodeStore;
     }
 
-    public StatisticsDefinitionPrinter() {
-        
-    }
-
     @Override
     public void print(PrintWriter printWriter, Format format, boolean isZip) {
         if (format == Format.JSON) {
