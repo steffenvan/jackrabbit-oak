@@ -1,8 +1,13 @@
 package org.apache.jackrabbit.oak.plugins.index.statistics;
 
 import org.apache.jackrabbit.oak.api.CommitFailedException;
+import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Tree;
+import org.apache.jackrabbit.oak.plugins.index.IndexEditorProvider;
+import org.apache.jackrabbit.oak.plugins.index.IndexUpdateCallback;
 import org.apache.jackrabbit.oak.plugins.memory.MemoryNodeStore;
+import org.apache.jackrabbit.oak.spi.commit.Editor;
+import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStateUtils;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
@@ -12,10 +17,14 @@ import org.junit.Test;
 import java.util.List;
 
 import static org.apache.jackrabbit.oak.plugins.index.statistics.IndexUtil.getIndexRoot;
+import static org.apache.jackrabbit.oak.plugins.index.statistics.StatisticsEditorProvider.DEFAULT_PROPERTY_CMS_ROWS;
+import static org.apache.jackrabbit.oak.plugins.memory.EmptyNodeState.EMPTY_NODE;
 import static org.apache.jackrabbit.oak.spi.state.AbstractNodeState.getLong;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class StatisticsIndexTest {
@@ -57,8 +66,7 @@ public class StatisticsIndexTest {
 
     @Test
     public void testGetTopKNodeNotExists() {
-        List<TopKValues.ValueCountPair> empty =
-                StatisticsIndexHelper.getTopValues(
+        List<TopKValues.ValueCountPair> empty = StatisticsIndexHelper.getTopValues(
                 "jcr:isAbstract", getIndexRoot(nodeStore));
 
         assertTrue(empty.isEmpty());
@@ -114,8 +122,7 @@ public class StatisticsIndexTest {
         // Count-Min sketch, we know that the one that the one that is
         // created after we add the properties will have the default number
         // of rows
-        int rows = StatisticsEditorProvider.DEFAULT_PROPERTY_CMS_ROWS;
-        for (int i = 0; i < rows; i++) {
+        for (int i = 0; i < DEFAULT_PROPERTY_CMS_ROWS; i++) {
             assertTrue(t.hasProperty(StatisticsEditor.PROPERTY_CMS_NAME + i));
         }
 
@@ -123,6 +130,46 @@ public class StatisticsIndexTest {
         utility.commit();
         assertFalse(nodeExists(t.getPath()));
     }
+
+    @Test
+    public void testProviderFailWithDifferentType() throws CommitFailedException {
+        NodeState ns = nodeStore.getRoot();
+        NodeBuilder b = ns.builder();
+
+        IndexEditorProvider statProvider = new StatisticsEditorProvider();
+        Editor editor = statProvider.getIndexEditor("fail", b, ns,
+                                                    IndexUpdateCallback.NOOP);
+        assertNull(editor);
+    }
+
+    @Test
+    public void testProviderUsesDefaultValues() throws CommitFailedException {
+        NodeState root = nodeStore.getRoot();
+        NodeBuilder b = EMPTY_NODE.builder();
+        b.setProperty(StatisticsEditorProvider.COMMON_PROPERTY_THRESHOLD, 10);
+        b.setProperty(StatisticsEditorProvider.VALUE_CMS_COLS,
+                      StatisticsEditorProvider.DEFAULT_VALUE_CMS_COLS);
+        b.setProperty(StatisticsEditorProvider.VALUE_CMS_ROWS,
+                      StatisticsEditorProvider.DEFAULT_VALUE_CMS_ROWS);
+
+        b.setProperty(StatisticsEditorProvider.PROPERTY_CMS_COLS,
+                      StatisticsEditorProvider.DEFAULT_PROPERTY_CMS_COLS);
+        b.setProperty(StatisticsEditorProvider.PROPERTY_CMS_ROWS,
+                      StatisticsEditorProvider.DEFAULT_PROPERTY_CMS_ROWS);
+
+        IndexEditorProvider statProvider = new StatisticsEditorProvider();
+        Editor editor = statProvider.getIndexEditor(
+                StatisticsEditorProvider.TYPE, b, root,
+                IndexUpdateCallback.NOOP);
+
+        assertNotNull(editor);
+        editor = editor.childNodeDeleted("foo1", root);
+        assertNotNull(editor);
+        String p = "bar";
+        PropertyState ps = root.getProperty(p);
+        editor.propertyDeleted(ps);
+    }
+
 
     private boolean nodeExists(String path) {
         return NodeStateUtils.getNode(nodeStore.getRoot(), path).exists();

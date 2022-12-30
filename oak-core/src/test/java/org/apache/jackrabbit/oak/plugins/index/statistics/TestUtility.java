@@ -42,8 +42,7 @@ public class TestUtility {
     private Root root;
 
     TestUtility(NodeStore store,
-                String indexName) throws CommitFailedException,
-            NoSuchWorkspaceException, LoginException {
+                String indexName) throws CommitFailedException, NoSuchWorkspaceException, LoginException {
         this.store = store;
         Oak oak = getOak();
         this.indexName = indexName;
@@ -77,6 +76,13 @@ public class TestUtility {
             builder = builder.child(p);
         }
         builder.setProperty(name, value);
+    }
+
+    static void deleteProperty(NodeBuilder builder, String path, String name) {
+        for (String p : PathUtils.elements(path)) {
+            builder = builder.child(p);
+        }
+        builder.removeProperty(name);
     }
 
     /**
