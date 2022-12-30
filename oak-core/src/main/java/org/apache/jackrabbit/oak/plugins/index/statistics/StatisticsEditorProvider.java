@@ -23,7 +23,6 @@ import org.apache.jackrabbit.oak.api.PropertyState;
 import org.apache.jackrabbit.oak.api.Type;
 import org.apache.jackrabbit.oak.plugins.index.IndexEditorProvider;
 import org.apache.jackrabbit.oak.plugins.index.IndexUpdateCallback;
-import org.apache.jackrabbit.oak.plugins.index.counter.jmx.NodeCounter;
 import org.apache.jackrabbit.oak.spi.commit.Editor;
 import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
@@ -33,7 +32,6 @@ import org.osgi.service.component.annotations.Component;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @Component(service = IndexEditorProvider.class)
 public class StatisticsEditorProvider implements IndexEditorProvider {
@@ -44,8 +42,7 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
 
     public static final String SEED = "seed";
 
-    public static final String COMMON_PROPERTY_THRESHOLD =
-            "commonPropertyThreshold";
+    public static final String COMMON_PROPERTY_THRESHOLD = "commonPropertyThreshold";
     public static final String PROPERTY_CMS_ROWS = "propertyCMSRows";
     public static final String PROPERTY_CMS_COLS = "propertyCMSCols";
     public static final String VALUE_CMS_ROWS = "valueCMSRows";
@@ -67,28 +64,8 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
         if (!TYPE.equals(type)) {
             return null;
         }
-        int resolution;
-        PropertyState s = definition.getProperty(RESOLUTION);
-        if (s == null) {
-            resolution = StatisticsEditor.DEFAULT_RESOLUTION;
-        } else {
-            resolution = s.getValue(Type.LONG).intValue();
-        }
-        long seed;
-        s = definition.getProperty(SEED);
-        if (s != null) {
-            seed = s.getValue(Type.LONG).intValue();
-        } else {
-            seed = 0;
-            if (NodeCounter.COUNT_HASH) {
-                // create a random number (that way we can also check if this
-                // feature is enabled)
-                seed = UUID.randomUUID().getMostSignificantBits();
-                definition.setProperty(SEED, seed);
-            }
-        }
         int commonPropertyThreshold;
-        s = definition.getProperty(COMMON_PROPERTY_THRESHOLD);
+        PropertyState s = definition.getProperty(COMMON_PROPERTY_THRESHOLD);
         if (s == null) {
             commonPropertyThreshold = 10;
         } else {
@@ -114,10 +91,8 @@ public class StatisticsEditorProvider implements IndexEditorProvider {
             valueCMSCols = cols.getValue(Type.LONG).intValue();
         }
 
-        StatisticsEditor.StatisticsRoot rootData =
-                new StatisticsEditor.StatisticsRoot(
-                resolution, seed, definition, root, callback,
-                commonPropertyThreshold);
+        StatisticsEditor.StatisticsRoot rootData = new StatisticsEditor.StatisticsRoot(
+                definition, root, callback, commonPropertyThreshold);
         CountMinSketch cms = new CountMinSketch(propertyCMSRows,
                                                 propertyCMSCols);
         Map<String, PropertyStatistics> propertyStatistics = new HashMap<>();

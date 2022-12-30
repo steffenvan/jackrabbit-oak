@@ -35,7 +35,6 @@ public class StatisticsEditor implements Editor {
     public static final String DATA_NODE_NAME = "index";
     public static final String PROPERTIES = "properties";
 
-    public static final int DEFAULT_RESOLUTION = 1000;
     public static final int DEFAULT_HLL_SIZE = 64;
     public static final int K_ELEMENTS = 5;
 
@@ -303,21 +302,14 @@ public class StatisticsEditor implements Editor {
     }
 
     public static class StatisticsRoot {
-        final int resolution;
-        final long seed;
-        final int bitMask;
         final NodeBuilder definition;
         final NodeState root;
         final IndexUpdateCallback callback;
         private final int commonPropertyThreshold;
 
-        StatisticsRoot(int resolution, long seed, NodeBuilder definition,
-                       NodeState root, IndexUpdateCallback callback,
+        StatisticsRoot(NodeBuilder definition, NodeState root,
+                       IndexUpdateCallback callback,
                        int commonPropertyThreshold) {
-            this.resolution = resolution;
-            this.seed = seed;
-            // if resolution is 1000, then the bitMask is 1023 (bits 0..9 set)
-            this.bitMask = (Integer.highestOneBit(resolution) * 2) - 1;
             this.definition = definition;
             this.root = root;
             this.callback = callback;
