@@ -27,6 +27,7 @@ import static org.apache.jackrabbit.oak.plugins.index.elastic.util.TermQueryBuil
 import static org.apache.jackrabbit.oak.plugins.index.elastic.util.TermQueryBuilderFactory.newPropertyRestrictionQuery;
 import static org.apache.jackrabbit.oak.plugins.index.elastic.util.TermQueryBuilderFactory.newWildcardPathQuery;
 import static org.apache.jackrabbit.oak.plugins.index.elastic.util.TermQueryBuilderFactory.newWildcardQuery;
+import static org.apache.jackrabbit.oak.plugins.index.search.FulltextIndexConstants.DYNAMIC_BOOST_WEIGHT;
 import static org.apache.jackrabbit.oak.spi.query.QueryConstants.JCR_PATH;
 import static org.apache.jackrabbit.oak.spi.query.QueryConstants.JCR_SCORE;
 import static org.apache.jackrabbit.util.ISO8601.parse;
@@ -35,7 +36,6 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -116,7 +116,7 @@ public class ElasticRequestHandler {
     private static final Logger LOG = LoggerFactory.getLogger(ElasticRequestHandler.class);
     private final static String SPELLCHECK_PREFIX = "spellcheck?term=";
     protected final static String SUGGEST_PREFIX = "suggest?term=";
-    private static final List<SortOptions> DEFAULT_SORTS = Arrays.asList(
+    private static final List<SortOptions> DEFAULT_SORTS = List.of(
             SortOptions.of(so -> so.field(f -> f.field("_score").order(SortOrder.Desc))),
             SortOptions.of(so -> so.field(f -> f.field(FieldNames.PATH).order(SortOrder.Asc)))
     );
@@ -389,11 +389,14 @@ public class ElasticRequestHandler {
             // We store path as the _id so no need to do anything extra here
             // We expect Similar impl to send a query where text would have evaluated to
             // node path.
-            mlt.like(l -> l.document(d -> d.id(id)));
+            mlt.like(l -> l.document(d -> d.id(id)
+                    // this is needed to workaround https://github.com/elastic/elasticsearch/pull/94518 that causes empty
+                    // results when the _ignored metadata field is part of the input document
+                    .perFieldAnalyzer("_ignored", "keyword")));
         } else {
             // This is for native queries if someone sends additional fields via
             // mlt.fl=field1,field2
-            mlt.like(l -> l.document(d -> d.fields(Arrays.asList(fields.split(","))).id(id)));
+            mlt.like(l -> l.document(d -> d.fields(List.of(fields.split(","))).id(id)));
         }
         // include the input doc to align the Lucene behaviour TODO: add configuration
         // parameter
@@ -424,7 +427,7 @@ public class ElasticRequestHandler {
             mltParamSetter.accept(MoreLikeThisHelperUtil.MLT_STOP_WORDS, (val) -> {
                 // TODO : Read this from a stopwords text file, configured via index defn maybe
                 // ?
-                mlt.stopWords(Arrays.asList(val.split(",")));
+                mlt.stopWords(List.of(val.split(",")));
             });
 
             if (!shallowMltParams.isEmpty()) {
@@ -542,20 +545,18 @@ public class ElasticRequestHandler {
 
             private boolean visitTerm(String propertyName, String text, String boost, boolean not) {
                 // base query
-                QueryStringQuery.Builder qsqBuilder = fullTextQuery(text, getElasticFieldName(propertyName), pr);
+                boolean dbEnabled = !elasticIndexDefinition.getDynamicBoostProperties().isEmpty();
+                QueryStringQuery.Builder qsqBuilder = fullTextQuery(text, getElasticFieldName(propertyName), pr, dbEnabled);
                 if (boost != null) {
                     qsqBuilder.boost(Float.valueOf(boost));
                 }
                 BoolQuery.Builder bqBuilder = new BoolQuery.Builder()
-                        .must(m->m
-                                .queryString(qsqBuilder.build()));
+                        .must(m -> m.queryString(qsqBuilder.build()));
                 Stream<NestedQuery> dynamicScoreQueries = dynamicScoreQueries(text);
-                dynamicScoreQueries.forEach(dsq -> bqBuilder.should(s->s.nested(dsq)));
+                dynamicScoreQueries.forEach(dsq -> bqBuilder.should(s -> s.nested(dsq)));
 
                 if (not) {
-                    result.set(BoolQuery.of(b->b
-                            .mustNot(mn->mn
-                                    .bool(bqBuilder.build()))));
+                    result.set(BoolQuery.of(b -> b.mustNot(mn -> mn.bool(bqBuilder.build()))));
                 } else {
                     result.set(bqBuilder.build());
                 }
@@ -570,6 +571,7 @@ public class ElasticRequestHandler {
         return elasticIndexDefinition.getDynamicBoostProperties().stream().map(pd -> NestedQuery.of(n -> n
                 .path(pd.nodeName)
                 .query(q -> q.functionScore(s -> s
+                        .boost(DYNAMIC_BOOST_WEIGHT)
                         .query(fq -> fq.match(m -> m.field(pd.nodeName + ".value").query(FieldValue.of(text))))
                         .functions(f -> f.fieldValueFactor(fv -> fv.field(pd.nodeName + ".boost")))))
                 .scoreMode(ChildScoreMode.Avg))
@@ -801,17 +803,20 @@ public class ElasticRequestHandler {
         return Query.of(q -> q.multiMatch(m -> m.fields(uuid)));
     }
 
-    private static QueryStringQuery.Builder fullTextQuery(String text, String fieldName, PlanResult pr) {
+    private static QueryStringQuery.Builder fullTextQuery(String text, String fieldName, PlanResult pr, boolean dynamicBoosEnabled) {
         LOG.debug("fullTextQuery for text: '{}', fieldName: '{}'", text, fieldName);
         QueryStringQuery.Builder qsqBuilder = new QueryStringQuery.Builder()
                 .query(FulltextIndex.rewriteQueryText(text))
                 .defaultOperator(co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)
-                .type(TextQueryType.CrossFields);
+                .type(TextQueryType.CrossFields)
+                .tieBreaker(0.5d);
         if (FieldNames.FULLTEXT.equals(fieldName)) {
             for(PropertyDefinition pd: pr.indexingRule.getNodeScopeAnalyzedProps()) {
-                qsqBuilder.fields(pd.name);
-                qsqBuilder.boost(pd.boost);
+                qsqBuilder.fields(pd.name + "^" + pd.boost);
             }
+        }
+        if (dynamicBoosEnabled) {
+            qsqBuilder.fields(ElasticIndexDefinition.DYNAMIC_BOOST_FULLTEXT + "^" + DYNAMIC_BOOST_WEIGHT);
         }
         return qsqBuilder.fields(fieldName);
     }

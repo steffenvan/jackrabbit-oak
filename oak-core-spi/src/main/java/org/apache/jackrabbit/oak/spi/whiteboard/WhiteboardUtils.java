@@ -30,9 +30,9 @@ import org.apache.jackrabbit.oak.spi.GuavaDeprecation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
+import org.apache.jackrabbit.guava.common.collect.ImmutableList;
+import org.apache.jackrabbit.guava.common.collect.ImmutableMap;
+import org.apache.jackrabbit.guava.common.collect.Iterables;
 
 import static org.apache.jackrabbit.oak.spi.whiteboard.WhiteboardUtils.ScheduleExecutionInstanceTypes.DEFAULT;
 import static org.apache.jackrabbit.oak.spi.whiteboard.WhiteboardUtils.ScheduleExecutionInstanceTypes.RUN_ON_LEADER;
@@ -175,7 +175,8 @@ public class WhiteboardUtils {
      * @deprecated use {@link #getServices(Whiteboard, Class, java.util.function.Predicate)} instead
      */
     @NotNull
-    @Deprecated public static <T> List<T> getServices(@NotNull Whiteboard wb, @NotNull Class<T> type,
+    @Deprecated(since = "1.20.0", forRemoval = true)
+    public static <T> List<T> getServices(@NotNull Whiteboard wb, @NotNull Class<T> type,
             @Nullable com.google.common.base.Predicate<T> predicate) {
         GuavaDeprecation.handleCall("OAK-8685");
         return getServices(wb, type, (java.util.function.Predicate<T>) (input) -> predicate.apply(input));
@@ -212,7 +213,7 @@ public class WhiteboardUtils {
      * @deprecated use {@link #getService(Whiteboard, Class, Predicate)} instead
      */
     @Nullable
-    @Deprecated
+    @Deprecated(since = "1.20.0", forRemoval = true)
     public static <T> T getService(@NotNull Whiteboard wb, @NotNull Class<T> type,
             @Nullable com.google.common.base.Predicate<T> predicate) {
         GuavaDeprecation.handleCall("OAK-8685");

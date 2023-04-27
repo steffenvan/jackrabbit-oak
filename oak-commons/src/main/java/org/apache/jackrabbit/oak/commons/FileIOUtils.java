@@ -16,6 +16,22 @@
  */
 package org.apache.jackrabbit.oak.commons;
 
+import static java.io.File.createTempFile;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.commons.io.FileUtils.forceDelete;
+import static org.apache.commons.io.IOUtils.closeQuietly;
+import static org.apache.commons.io.IOUtils.copyLarge;
+import static org.apache.commons.io.LineIterator.closeQuietly;
+import static org.apache.jackrabbit.guava.common.io.Closeables.close;
+import static org.apache.jackrabbit.guava.common.io.FileWriteMode.APPEND;
+import static org.apache.jackrabbit.guava.common.io.Files.asByteSink;
+import static org.apache.jackrabbit.guava.common.io.Files.move;
+import static org.apache.jackrabbit.guava.common.io.Files.newWriter;
+import static org.apache.jackrabbit.oak.commons.sort.EscapeUtils.escapeLineBreak;
+import static org.apache.jackrabbit.oak.commons.sort.EscapeUtils.unescapeLineBreaks;
+import static org.apache.jackrabbit.oak.commons.sort.ExternalSort.mergeSortedFiles;
+import static org.apache.jackrabbit.oak.commons.sort.ExternalSort.sortInBatch;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.Closeable;
@@ -26,39 +42,21 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
-import com.google.common.base.Charsets;
-import com.google.common.base.Function;
-import com.google.common.base.Strings;
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
+import org.apache.jackrabbit.guava.common.base.Strings;
+import org.apache.jackrabbit.guava.common.collect.Iterators;
+import org.apache.jackrabbit.guava.common.collect.PeekingIterator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.google.common.base.Charsets.UTF_8;
-import static com.google.common.collect.Sets.newHashSet;
-import static com.google.common.io.Closeables.close;
-import static com.google.common.io.FileWriteMode.APPEND;
-import static com.google.common.io.Files.asByteSink;
-import static com.google.common.io.Files.move;
-import static com.google.common.io.Files.newWriter;
-import static java.io.File.createTempFile;
-import static org.apache.commons.io.FileUtils.forceDelete;
-import static org.apache.commons.io.IOUtils.closeQuietly;
-import static org.apache.commons.io.IOUtils.copyLarge;
-import static org.apache.commons.io.LineIterator.closeQuietly;
-import static org.apache.jackrabbit.oak.commons.sort.EscapeUtils.escapeLineBreak;
-import static org.apache.jackrabbit.oak.commons.sort.EscapeUtils.unescapeLineBreaks;
-import static org.apache.jackrabbit.oak.commons.sort.ExternalSort.mergeSortedFiles;
-import static org.apache.jackrabbit.oak.commons.sort.ExternalSort.sortInBatch;
 
 /**
  * Simple File utils
@@ -75,9 +73,10 @@ public final class FileIOUtils {
     };
 
     /**
-     * @deprecated use {@link java.util.function.Function#identity()} instead
+     * @deprecated use {@link Function#identity()} instead
      */
-    @Deprecated public final static Function<String, String> passThruTransformer = new Function<String, String>() {
+    @Deprecated(since = "1.20.0", forRemoval = true)
+    public final static com.google.common.base.Function<String, String> passThruTransformer = new com.google.common.base.Function<String, String>() {
         @Nullable @Override public String apply(@Nullable String input) {
             return input;
         }
@@ -231,7 +230,7 @@ public final class FileIOUtils {
      */
     public static int writeStrings(Iterator<String> iterator, File f, boolean escape,
         @Nullable Logger logger, @Nullable String message) throws IOException {
-        return writeStrings(iterator, f, escape, java.util.function.Function.identity(), logger, message);
+        return writeStrings(iterator, f, escape, Function.identity(), logger, message);
     }
 
     /**
@@ -248,7 +247,7 @@ public final class FileIOUtils {
      * @throws IOException
      */
     public static int writeStrings(Iterator<String> iterator, File f, boolean escape,
-        @NotNull java.util.function.Function<String, String> transformer, @Nullable Logger logger, @Nullable String message) throws IOException {
+        @NotNull Function<String, String> transformer, @Nullable Logger logger, @Nullable String message) throws IOException {
         BufferedWriter writer = newWriter(f, UTF_8);
         boolean threw = true;
 
@@ -271,12 +270,13 @@ public final class FileIOUtils {
     }
 
     /**
-     * @deprecated use {@link #writeStrings(Iterator, File, boolean, java.util.function.Function, Logger, String)} instead
+     * @deprecated use {@link #writeStrings(Iterator, File, boolean, Function, Logger, String)} instead
      */
-    @Deprecated public static int writeStrings(Iterator<String> iterator, File f, boolean escape,
-            @NotNull Function<String, String> transformer, @Nullable Logger logger, @Nullable String message) throws IOException {
+    @Deprecated(since = "1.20.0", forRemoval = true)
+    public static int writeStrings(Iterator<String> iterator, File f, boolean escape,
+            @NotNull com.google.common.base.Function<String, String> transformer, @Nullable Logger logger, @Nullable String message) throws IOException {
         GuavaDeprecation.handleCall("OAK-8677");
-        java.util.function.Function<String, String> tr2 = (s) -> transformer.apply(s);
+        Function<String, String> tr2 = (s) -> transformer.apply(s);
         return writeStrings(iterator, f, escape, tr2, logger, message);
     }
 
@@ -290,11 +290,11 @@ public final class FileIOUtils {
      */
     public static Set<String> readStringsAsSet(InputStream stream, boolean unescape) throws IOException {
         BufferedReader reader = null;
-        Set<String> set = newHashSet();
+        Set<String> set = new HashSet<>();
         boolean threw = true;
 
         try {
-            reader = new BufferedReader(new InputStreamReader(stream, Charsets.UTF_8));
+            reader = new BufferedReader(new InputStreamReader(stream, UTF_8));
             String line  = null;
             while ((line = reader.readLine()) != null) {
                 if (unescape) {
@@ -352,10 +352,26 @@ public final class FileIOUtils {
      * comparator.
      */
     public static class TransformingComparator implements Comparator<String> {
-        private Comparator delegate;
+        private Comparator<String> delegate;
         private Function<String, String> func;
 
-        public TransformingComparator(Comparator delegate, Function<String, String> func) {
+        /**
+         * @deprecated use {@link TransformingComparator(Comparator<String>
+         *             delegate, Function<String, String>) instead
+         */
+        @Deprecated(since = "1.50.0", forRemoval = true)
+        public TransformingComparator(Comparator<String> delegate, final com.google.common.base.Function<String, String> func) {
+            GuavaDeprecation.handleCall("OAK-10109");
+            this.delegate = delegate;
+            this.func = new Function<String, String>() {
+                @Override
+                public String apply(String t) {
+                    return func.apply(t);
+                }
+            };
+        }
+
+        public TransformingComparator(Comparator<String> delegate, Function<String, String> func) {
             this.delegate = delegate;
             this.func = func;
         }
@@ -376,11 +392,12 @@ public final class FileIOUtils {
      * 
      * @deprecated use {@link org.apache.jackrabbit.oak.commons.io.FileLineDifferenceIterator} instead
      */
-    @Deprecated public static class FileLineDifferenceIterator extends AbstractIterator<String> implements Closeable {
+    @Deprecated(since = "1.20.0", forRemoval = true)
+    public static class FileLineDifferenceIterator extends com.google.common.collect.AbstractIterator<String> implements Closeable {
         private final PeekingIterator<String> peekMarked;
         private final LineIterator marked;
         private final LineIterator all;
-        private Function<String, String> transformer = new Function<String, String>() {
+        private com.google.common.base.Function<String, String> transformer = new com.google.common.base.Function<String, String>() {
             @Override
             public String apply(String input) {
                 return input;
@@ -392,13 +409,13 @@ public final class FileIOUtils {
         }
 
         public FileLineDifferenceIterator(File marked, File available,
-            @Nullable Function<String, String> transformer) throws IOException {
+            @Nullable com.google.common.base.Function<String, String> transformer) throws IOException {
             this(FileUtils.lineIterator(marked, UTF_8.toString()),
                 FileUtils.lineIterator(available, UTF_8.toString()), transformer);
         }
 
         public FileLineDifferenceIterator(LineIterator marked, LineIterator available,
-            @Nullable Function<String, String> transformer) throws IOException {
+            @Nullable com.google.common.base.Function<String, String> transformer) throws IOException {
             GuavaDeprecation.handleCall("OAK-8676");
             this.marked = marked;
             this.peekMarked = Iterators.peekingIterator(marked);
@@ -474,19 +491,20 @@ public final class FileIOUtils {
      * @param <T> the type of elements in the iterator
      * @deprecated use {@link org.apache.jackrabbit.oak.commons.io.BurnOnCloseFileIterator} instead
      */
-    @Deprecated public static class BurnOnCloseFileIterator<T> extends AbstractIterator<T> implements Closeable {
+    @Deprecated(since = "1.20.0", forRemoval = true)
+    public static class BurnOnCloseFileIterator<T> extends com.google.common.collect.AbstractIterator<T> implements Closeable {
         private final Logger log = LoggerFactory.getLogger(getClass());
 
         private final LineIterator iterator;
-        private final Function<String, T> transformer;
+        private final com.google.common.base.Function<String, T> transformer;
         private final File backingFile;
 
-        public BurnOnCloseFileIterator(LineIterator iterator, Function<String, T> transformer) {
+        public BurnOnCloseFileIterator(LineIterator iterator, com.google.common.base.Function<String, T> transformer) {
             this(iterator, null, transformer);
         }
 
         public BurnOnCloseFileIterator(LineIterator iterator, File backingFile,
-            Function<String, T> transformer) {
+                com.google.common.base.Function<String, T> transformer) {
             GuavaDeprecation.handleCall("OAK-8666");
             this.iterator = iterator;
             this.transformer = transformer;
@@ -516,7 +534,7 @@ public final class FileIOUtils {
         }
 
         public static BurnOnCloseFileIterator<String> wrap(LineIterator iter) {
-            return new BurnOnCloseFileIterator<String>(iter, new Function<String, String>() {
+            return new BurnOnCloseFileIterator<String>(iter, new com.google.common.base.Function<String, String>() {
                 public String apply(String s) {
                     return s;
                 }
@@ -525,7 +543,7 @@ public final class FileIOUtils {
 
         public static BurnOnCloseFileIterator<String> wrap(LineIterator iter, File backingFile) {
             return new BurnOnCloseFileIterator<String>(iter, backingFile,
-                new Function<String, String>() {
+                new com.google.common.base.Function<String, String>() {
                     public String apply(String s) {
                         return s;
                     }

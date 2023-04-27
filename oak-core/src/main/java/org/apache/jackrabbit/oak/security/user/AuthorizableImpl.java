@@ -288,13 +288,13 @@ abstract class AuthorizableImpl implements Authorizable, UserConstants, TreeAwar
         
         MembershipProvider mMgr = getMembershipProvider();
         Iterator<Tree> trees = mMgr.getMembership(getTree(), includeInherited);
-        
+
         if (!trees.hasNext()) {
-            return dynamicGroups;
+            return new RangeIteratorAdapter(AuthorizableIterator.create(true, dynamicGroups));
+        } else {
+            AuthorizableIterator groups = AuthorizableIterator.create(trees, userManager, AuthorizableType.GROUP);
+            AuthorizableIterator allGroups = AuthorizableIterator.create(true, dynamicGroups, groups);
+            return new RangeIteratorAdapter(allGroups);
         }
-        
-        AuthorizableIterator groups = AuthorizableIterator.create(trees, userManager, AuthorizableType.GROUP);
-        AuthorizableIterator allGroups = AuthorizableIterator.create(true, dynamicGroups, groups);
-        return new RangeIteratorAdapter(allGroups);
     }
 }

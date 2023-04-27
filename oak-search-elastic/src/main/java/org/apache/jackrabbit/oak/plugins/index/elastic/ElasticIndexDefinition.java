@@ -30,10 +30,12 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.apache.jackrabbit.oak.api.Type;
+import org.apache.jackrabbit.oak.plugins.index.search.FulltextIndexConstants;
 import org.apache.jackrabbit.oak.plugins.index.search.IndexDefinition;
 import org.apache.jackrabbit.oak.plugins.index.search.PropertyDefinition;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class ElasticIndexDefinition extends IndexDefinition {
 
@@ -43,7 +45,7 @@ public class ElasticIndexDefinition extends IndexDefinition {
     public static final int BULK_ACTIONS_DEFAULT = 250;
 
     public static final String BULK_SIZE_BYTES = "bulkSizeBytes";
-    public static final long BULK_SIZE_BYTES_DEFAULT = 2 * 1024 * 1024; // 2MB
+    public static final long BULK_SIZE_BYTES_DEFAULT = 1 * 1024 * 1024; // 1MB
 
     public static final String BULK_FLUSH_INTERVAL_MS = "bulkFlushIntervalMs";
     public static final long BULK_FLUSH_INTERVAL_MS_DEFAULT = 3000;
@@ -61,10 +63,18 @@ public class ElasticIndexDefinition extends IndexDefinition {
     public static final int NUMBER_OF_REPLICAS_DEFAULT = 1;
 
     public static final String QUERY_FETCH_SIZES = "queryFetchSizes";
-    public static final Long[] QUERY_FETCH_SIZES_DEFAULT = new Long[]{100L, 1000L};
+    public static final Long[] QUERY_FETCH_SIZES_DEFAULT = new Long[]{10L, 100L, 1000L};
 
     public static final String TRACK_TOTAL_HITS = "trackTotalHits";
     public static final Integer TRACK_TOTAL_HITS_DEFAULT = 10000;
+
+    public static final String DYNAMIC_MAPPING = "dynamicMapping";
+    // possible values are: true, false, runtime, strict. See https://www.elastic.co/guide/en/elasticsearch/reference/current/dynamic.html
+    public static final String DYNAMIC_MAPPING_DEFAULT = "true";
+
+    // when true, fails indexing in case of bulk failures
+    public static final String FAIL_ON_ERROR = "failOnError";
+    public static final boolean FAIL_ON_ERROR_DEFAULT = true;
 
     /**
      * Hidden property for storing a seed value to be used as suffix in remote index name.
@@ -77,14 +87,9 @@ public class ElasticIndexDefinition extends IndexDefinition {
     public static final String SIMILARITY_TAGS = ":simTags";
 
     /**
-     * Node name under which various analyzers are configured
+     * Hidden property to handle dynamic tags for fulltext queries
      */
-    private static final String ANALYZERS = "analyzers";
-
-    /**
-     * Boolean property indicating if in-built analyzer should preserve original term
-     */
-    public static final String INDEX_ORIGINAL_TERM = "indexOriginalTerm";
+    public static final String DYNAMIC_BOOST_FULLTEXT = ":dynamic-boost-ft";
 
     public static final String SPLIT_ON_CASE_CHANGE = "splitOnCaseChange";
     public static final String SPLIT_ON_NUMERICS = "splitOnNumerics";
@@ -120,6 +125,8 @@ public class ElasticIndexDefinition extends IndexDefinition {
     public final int numberOfReplicas;
     public final int[] queryFetchSizes;
     public final Integer trackTotalHits;
+    public final String dynamicMapping;
+    public final boolean failOnError;
 
     private final Map<String, List<PropertyDefinition>> propertiesByName;
     private final List<PropertyDefinition> dynamicBoostProperties;
@@ -141,6 +148,10 @@ public class ElasticIndexDefinition extends IndexDefinition {
         this.queryFetchSizes = Arrays.stream(getOptionalValues(defn, QUERY_FETCH_SIZES, Type.LONGS, Long.class, QUERY_FETCH_SIZES_DEFAULT))
                 .mapToInt(Long::intValue).toArray();
         this.trackTotalHits = getOptionalValue(defn, TRACK_TOTAL_HITS, TRACK_TOTAL_HITS_DEFAULT);
+        this.dynamicMapping = getOptionalValue(defn, DYNAMIC_MAPPING, DYNAMIC_MAPPING_DEFAULT);
+        this.failOnError = getOptionalValue(defn, FAIL_ON_ERROR,
+                Boolean.parseBoolean(System.getProperty(TYPE_ELASTICSEARCH + "." + FAIL_ON_ERROR, Boolean.toString(FAIL_ON_ERROR_DEFAULT)))
+        );
 
         this.propertiesByName = getDefinedRules()
                 .stream()
@@ -165,6 +176,11 @@ public class ElasticIndexDefinition extends IndexDefinition {
                 .stream()
                 .flatMap(rule -> rule.getSimilarityProperties().stream())
                 .collect(Collectors.toList());
+    }
+
+    @Nullable
+    public NodeState getAnalyzersNodeState() {
+        return definition.getChildNode(FulltextIndexConstants.ANALYZERS);
     }
 
     public String getIndexPrefix() {
@@ -239,17 +255,17 @@ public class ElasticIndexDefinition extends IndexDefinition {
      * Returns {@code true} if original terms need to be preserved at indexing analysis phase
      */
     public boolean analyzerConfigIndexOriginalTerms() {
-        NodeState analyzersTree = definition.getChildNode(ANALYZERS);
-        return getOptionalValue(analyzersTree, INDEX_ORIGINAL_TERM, false);
+        NodeState analyzersTree = definition.getChildNode(FulltextIndexConstants.ANALYZERS);
+        return getOptionalValue(analyzersTree, FulltextIndexConstants.INDEX_ORIGINAL_TERM, false);
     }
 
     public boolean analyzerConfigSplitOnCaseChange() {
-        NodeState analyzersTree = definition.getChildNode(ANALYZERS);
+        NodeState analyzersTree = definition.getChildNode(FulltextIndexConstants.ANALYZERS);
         return getOptionalValue(analyzersTree, SPLIT_ON_CASE_CHANGE, false);
     }
 
     public boolean analyzerConfigSplitOnNumerics() {
-        NodeState analyzersTree = definition.getChildNode(ANALYZERS);
+        NodeState analyzersTree = definition.getChildNode(FulltextIndexConstants.ANALYZERS);
         return getOptionalValue(analyzersTree, SPLIT_ON_NUMERICS, false);
     }
 

@@ -21,7 +21,7 @@
     <parent>
         <artifactId>oak-parent</artifactId>
         <groupId>org.apache.jackrabbit</groupId>
-        <version>1.45-SNAPSHOT</version>
+        <version>1.51-SNAPSHOT</version>
         <relativePath>../oak-parent/pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -38,6 +38,7 @@
                 <configuration>
                     <instructions>
                         <Import-Package>
+                          <!-- OAK-7182 -->${guava.osgi.import},
                           *
                         </Import-Package>
                         <Export-Package>

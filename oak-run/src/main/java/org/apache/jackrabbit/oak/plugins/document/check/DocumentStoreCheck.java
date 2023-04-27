@@ -43,6 +43,9 @@ import org.apache.jackrabbit.oak.plugins.document.mongo.MongoDocumentStore;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.jackrabbit.JcrConstants.JCR_BASEVERSION;
+import static org.apache.jackrabbit.JcrConstants.JCR_PREDECESSORS;
+import static org.apache.jackrabbit.JcrConstants.JCR_SUCCESSORS;
+import static org.apache.jackrabbit.JcrConstants.JCR_UUID;
 import static org.apache.jackrabbit.JcrConstants.JCR_VERSIONHISTORY;
 import static org.apache.jackrabbit.oak.plugins.document.check.Result.END;
 import static org.apache.jackrabbit.oak.plugins.document.mongo.MongoDocumentStoreCheckHelper.getAllNodeDocuments;
@@ -78,6 +81,12 @@ public class DocumentStoreCheck {
 
     private final boolean versionHistory;
 
+    private final boolean predecessors;
+
+    private final boolean successors;
+
+    private final boolean uuid;
+
     private DocumentStoreCheck(DocumentNodeStore ns,
                                DocumentStore store,
                                Closer closer,
@@ -88,7 +97,10 @@ public class DocumentStoreCheck {
                                String output,
                                boolean orphan,
                                boolean baseVersion,
-                               boolean versionHistory) {
+                               boolean versionHistory,
+                               boolean predecessors,
+                               boolean successors,
+                               boolean uuid) {
         this.ns = ns;
         this.store = store;
         this.closer = closer;
@@ -106,6 +118,9 @@ public class DocumentStoreCheck {
         this.orphan = orphan;
         this.baseVersion = baseVersion;
         this.versionHistory = versionHistory;
+        this.predecessors = predecessors;
+        this.successors = successors;
+        this.uuid = uuid;
     }
 
     public void run() throws Exception {
@@ -181,8 +196,17 @@ public class DocumentStoreCheck {
         if (versionHistory) {
             processors.add(new ReferenceCheck(JCR_VERSIONHISTORY, ns, ns.getHeadRevision(), executorService));
         }
+        if (predecessors) {
+            processors.add(new ReferenceCheck(JCR_PREDECESSORS, ns, ns.getHeadRevision(), executorService));
+        }
+        if (successors) {
+            processors.add(new ReferenceCheck(JCR_SUCCESSORS, ns, ns.getHeadRevision(), executorService));
+        }
         if (baseVersion) {
             processors.add(new ReferenceCheck(JCR_BASEVERSION, ns, ns.getHeadRevision(), executorService));
+        }
+        if (uuid) {
+            processors.add(new ReferenceCheck(JCR_UUID, ns, ns.getHeadRevision(), executorService));
         }
         return CompositeDocumentProcessor.compose(processors);
     }
@@ -218,6 +242,12 @@ public class DocumentStoreCheck {
         private boolean baseVersion;
 
         private boolean versionHistory;
+
+        private boolean predecessors;
+
+        private boolean successors;
+
+        private boolean uuid;
 
         public Builder(DocumentNodeStore ns,
                        DocumentStore store,
@@ -267,10 +297,25 @@ public class DocumentStoreCheck {
             return this;
         }
 
+        public Builder withPredecessors(boolean enable) {
+            this.predecessors = enable;
+            return this;
+        }
+
+        public Builder withSuccessors(boolean enable) {
+            this.successors = enable;
+            return this;
+        }
+
+        public Builder withUuid(boolean enable) {
+            this.uuid = enable;
+            return this;
+        }
+
         public DocumentStoreCheck build() {
             return new DocumentStoreCheck(ns, store, closer, progress, silent,
                     summary, numThreads, output, orphan, baseVersion,
-                    versionHistory);
+                    versionHistory, predecessors, successors, uuid);
         }
     }
 

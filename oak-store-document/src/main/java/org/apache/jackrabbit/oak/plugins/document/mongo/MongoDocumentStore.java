@@ -36,16 +36,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 
-import com.google.common.base.Optional;
-import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
-import com.google.common.io.Closeables;
-import com.google.common.util.concurrent.AtomicDouble;
-import com.google.common.util.concurrent.UncheckedExecutionException;
+import org.apache.jackrabbit.guava.common.base.Optional;
+import org.apache.jackrabbit.guava.common.base.Stopwatch;
+import org.apache.jackrabbit.guava.common.collect.ImmutableList;
+import org.apache.jackrabbit.guava.common.collect.ImmutableMap;
+import org.apache.jackrabbit.guava.common.collect.Iterables;
+import org.apache.jackrabbit.guava.common.collect.Iterators;
+import org.apache.jackrabbit.guava.common.collect.Lists;
+import org.apache.jackrabbit.guava.common.io.Closeables;
+import org.apache.jackrabbit.guava.common.util.concurrent.AtomicDouble;
 import com.mongodb.Block;
 import com.mongodb.DBObject;
 import com.mongodb.MongoBulkWriteException;
@@ -54,6 +53,8 @@ import com.mongodb.MongoClientURI;
 import com.mongodb.ReadPreference;
 
 import com.mongodb.client.model.CreateCollectionOptions;
+
+import org.apache.jackrabbit.guava.common.util.concurrent.UncheckedExecutionException;
 import org.apache.jackrabbit.oak.cache.CacheStats;
 import org.apache.jackrabbit.oak.cache.CacheValue;
 import org.apache.jackrabbit.oak.plugins.document.Collection;
@@ -86,8 +87,8 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Maps;
+import org.apache.jackrabbit.guava.common.base.Function;
+import org.apache.jackrabbit.guava.common.collect.Maps;
 import com.mongodb.BasicDBObject;
 import com.mongodb.MongoException;
 import com.mongodb.WriteConcern;
@@ -109,12 +110,14 @@ import com.mongodb.client.model.WriteModel;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 
-import static com.google.common.base.Predicates.in;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Maps.filterKeys;
-import static com.google.common.collect.Sets.difference;
+import static org.apache.jackrabbit.guava.common.base.Predicates.in;
+import static org.apache.jackrabbit.guava.common.base.Predicates.not;
+import static org.apache.jackrabbit.guava.common.collect.Iterables.filter;
+import static org.apache.jackrabbit.guava.common.collect.Maps.filterKeys;
+import static org.apache.jackrabbit.guava.common.collect.Sets.difference;
+import static com.mongodb.client.model.Projections.include;
 import static java.lang.Integer.MAX_VALUE;
+import static java.util.Collections.emptyList;
 import static org.apache.jackrabbit.oak.plugins.document.DocumentStoreException.asDocumentStoreException;
 import static org.apache.jackrabbit.oak.plugins.document.NodeDocument.DELETED_ONCE;
 import static org.apache.jackrabbit.oak.plugins.document.NodeDocument.MODIFIED_IN_SECS;
@@ -618,7 +621,7 @@ public class MongoDocumentStore implements DocumentStore {
             } else {
                 return (T) doc;
             }
-        } catch (UncheckedExecutionException e) {
+        } catch (UncheckedExecutionException | com.google.common.util.concurrent.UncheckedExecutionException e) {
             t = e.getCause();
         } catch (ExecutionException e) {
             t = e.getCause();
@@ -655,7 +658,7 @@ public class MongoDocumentStore implements DocumentStore {
                 return findUncached(collection, key, docReadPref);
             } catch (MongoException e) {
                 ex = e;
-                LOG.error("findUncachedWithRetry : read fails with an exception" + e, e);
+                LOG.warn("findUncachedWithRetry : read fails with an exception" + e, e);
             }
         }
         if (ex != null) {
@@ -722,8 +725,19 @@ public class MongoDocumentStore implements DocumentStore {
                                               String indexedProperty,
                                               long startValue,
                                               int limit) {
-        return queryWithRetry(collection, fromKey, toKey, indexedProperty,
-                startValue, limit, maxQueryTimeMS);
+        return query(collection, fromKey, toKey, indexedProperty, startValue, limit, emptyList());
+    }
+
+    @NotNull
+    @Override
+    public <T extends Document> List<T> query(final Collection<T> collection,
+                                              final String fromKey,
+                                              final String toKey,
+                                              final String indexedProperty,
+                                              final long startValue,
+                                              final int limit,
+                                              final List<String> projection) throws DocumentStoreException {
+        return queryWithRetry(collection, fromKey, toKey, indexedProperty, startValue, limit, projection, maxQueryTimeMS);
     }
 
     /**
@@ -737,6 +751,7 @@ public class MongoDocumentStore implements DocumentStore {
                                                         String indexedProperty,
                                                         long startValue,
                                                         int limit,
+                                                        List<String> projection,
                                                         long maxQueryTime) {
         int numAttempts = queryRetries + 1;
         MongoException ex = null;
@@ -746,7 +761,7 @@ public class MongoDocumentStore implements DocumentStore {
             }
             try {
                 return queryInternal(collection, fromKey, toKey,
-                        indexedProperty, startValue, limit, maxQueryTime);
+                        indexedProperty, startValue, limit, projection, maxQueryTime);
             } catch (MongoException e) {
                 ex = e;
             }
@@ -767,6 +782,7 @@ public class MongoDocumentStore implements DocumentStore {
                                                          String indexedProperty,
                                                          long startValue,
                                                          int limit,
+                                                         List<String> projection,
                                                          long maxQueryTime) {
         log("query", fromKey, toKey, indexedProperty, startValue, limit);
 
@@ -802,7 +818,7 @@ public class MongoDocumentStore implements DocumentStore {
         boolean isSlaveOk = false;
         int resultSize = 0;
         CacheChangesTracker cacheChangesTracker = null;
-        if (parentId != null && collection == Collection.NODES) {
+        if (parentId != null && collection == Collection.NODES && (projection == null || projection.isEmpty())) {
             cacheChangesTracker = nodesCache.registerTracker(fromKey, toKey);
         }
         try {
@@ -823,6 +839,11 @@ public class MongoDocumentStore implements DocumentStore {
                 } else {
                     result = dbCollection.find(query);
                 }
+
+                if (projection != null && !projection.isEmpty()) {
+                    result.projection(include(projection));
+                }
+
                 result.sort(BY_ID_ASC);
                 if (limit >= 0) {
                     result.limit(limit);
@@ -1553,7 +1574,7 @@ public class MongoDocumentStore implements DocumentStore {
                 }
             }
             return;
-        } catch (UncheckedExecutionException | ExecutionException e) {
+        } catch (UncheckedExecutionException | com.google.common.util.concurrent.UncheckedExecutionException | ExecutionException e) {
             t = e.getCause();
         } catch (RuntimeException e) {
             t = e;
