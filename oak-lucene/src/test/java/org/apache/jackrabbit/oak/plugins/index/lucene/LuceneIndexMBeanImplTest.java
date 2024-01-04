@@ -33,8 +33,8 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.core.SimpleAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field.Store;
-import org.apache.lucene.document.IntField;
-import org.apache.lucene.document.LongField;
+import org.apache.lucene.document.IntPoint;
+import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
@@ -87,8 +87,8 @@ public class LuceneIndexMBeanImplTest {
         for (int i = 0; i < 10; i++) {
             Document doc = new Document();
             doc.add(new StringField("string", "value-" + i, Store.NO));
-            doc.add(new LongField("long", i, Store.NO));
-            doc.add(new IntField("int", i, Store.NO));
+            doc.add(new LongPoint("long", i));
+            doc.add(new IntPoint("int", i));
             indexWriter.addDocument(doc);
             indexWriter.addDocument(doc);
         }

@@ -25,6 +25,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.List;
 import java.util.Map;
@@ -153,13 +154,12 @@ final class NodeStateAnalyzerFactory {
         String clazz = state.getString(FulltextIndexConstants.ANL_CLASS);
         Class<? extends Analyzer> analyzerClazz = defaultLoader.findClass(clazz, Analyzer.class);
 
-        Version matchVersion = getVersion(state);
         CharArraySet stopwords = null;
         if (StopwordAnalyzerBase.class.isAssignableFrom(analyzerClazz)
                 && state.hasChildNode(FulltextIndexConstants.ANL_STOPWORDS)) {
             try {
                 stopwords = loadStopwordSet(state.getChildNode(FulltextIndexConstants.ANL_STOPWORDS),
-                        FulltextIndexConstants.ANL_STOPWORDS, matchVersion);
+                        FulltextIndexConstants.ANL_STOPWORDS);
             } catch (IOException e) {
                 throw new RuntimeException("Error occurred while loading stopwords", e);
             }
@@ -241,10 +241,9 @@ final class NodeStateAnalyzerFactory {
         return version;
     }
 
-    private static CharArraySet loadStopwordSet(NodeState file, String name,
-                                                Version matchVersion) throws IOException {
+    private static CharArraySet loadStopwordSet(NodeState file, String name) throws IOException {
         Blob blob = ConfigUtil.getBlob(file, name);
-        Reader stopwords = new InputStreamReader(blob.getNewStream(), IOUtils.CHARSET_UTF_8);
+        Reader stopwords = new InputStreamReader(blob.getNewStream(), StandardCharsets.UTF_8);
         try {
             return WordlistLoader.getWordSet(stopwords);
         } finally {

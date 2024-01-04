@@ -229,16 +229,16 @@ public class IndexAugmentorFactory {
             }
 
             Query ret;
-            if (subQueries.size() == 0) {
+            if (subQueries.isEmpty()) {
                 ret = null;
             } else if (subQueries.size() == 1) {
                 ret = subQueries.get(0);
             } else {
-                BooleanQuery query = new BooleanQuery();
+                BooleanQuery.Builder query = new BooleanQuery.Builder();
                 for ( Query subQuery : subQueries ) {
                     query.add(subQuery, BooleanClause.Occur.SHOULD);
                 }
-                ret = query;
+                ret = query.build();
             }
 
             return ret;

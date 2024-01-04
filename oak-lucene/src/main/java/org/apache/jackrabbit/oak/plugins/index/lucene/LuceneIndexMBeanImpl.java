@@ -68,6 +68,8 @@ import org.apache.jackrabbit.oak.plugins.index.search.util.NodeStateCloner;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStateUtils;
 import org.apache.jackrabbit.oak.spi.state.NodeStore;
+import org.apache.lucene.document.IntPoint;
+import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.IndexReader;
@@ -77,7 +79,7 @@ import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.NumericRangeQuery;
+import org.apache.lucene.search.LegacyNumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermQuery;
@@ -468,9 +470,9 @@ public class LuceneIndexMBeanImpl extends AnnotatedStandardMBean implements Luce
     private static Function<BytesRef, String> getTypeHandler(String type) {
         if (type != null) {
             if (long.class.getName().equals(type) || Long.class.getName().equals(type)) {
-                return bytesRef -> String.valueOf(NumericUtils.prefixCodedToLong(bytesRef));
+                return bytesRef -> String.valueOf(LongPoint.decodeDimension(bytesRef.bytes, bytesRef.offset));
             } else if (int.class.getName().equals(type) || Integer.class.getName().equals(type)) {
-                return bytesRef -> String.valueOf(NumericUtils.prefixCodedToInt(bytesRef));
+                return bytesRef -> String.valueOf(IntPoint.decodeDimension(bytesRef.bytes, bytesRef.offset));
             }
         }
         return BytesRef::utf8ToString;
@@ -642,12 +644,12 @@ public class LuceneIndexMBeanImpl extends AnnotatedStandardMBean implements Luce
 
         public Iterable<LuceneDoc> getChildren() {
             //Perform a query for immediate child nodes at given path
-            BooleanQuery bq = new BooleanQuery();
+            BooleanQuery.Builder bq = new BooleanQuery.Builder();
             bq.add(new BooleanClause(new TermQuery(newAncestorTerm(path)), BooleanClause.Occur.MUST));
             bq.add(new BooleanClause(newDepthQuery(path), BooleanClause.Occur.MUST));
 
             try {
-                TopDocs docs = sc.searcher.search(bq, Integer.MAX_VALUE);
+                TopDocs docs = sc.searcher.search(bq.build(), Integer.MAX_VALUE);
                 return getLuceneDocs(docs, sc);
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -676,7 +678,7 @@ public class LuceneIndexMBeanImpl extends AnnotatedStandardMBean implements Luce
     }
 
     private static Query newDepthQuery(int depth) {
-        return NumericRangeQuery.newIntRange(FieldNames.PATH_DEPTH, depth, depth, true, true);
+        return LegacyNumericRangeQuery.newIntRange(FieldNames.PATH_DEPTH, depth, depth, true, true);
     }
 
     private static String[] createMsg(String msg){

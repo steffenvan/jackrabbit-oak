@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -355,7 +356,7 @@ public class HybridIndexTest extends AbstractQueryTest {
         //such that it does not indexes test nodetype
         Tree nodeType = root.getTree("/oak:index/nodetype");
         if (!nodeType.hasProperty(IndexConstants.DECLARING_NODE_TYPES)){
-            nodeType.setProperty(IndexConstants.DECLARING_NODE_TYPES, ImmutableList.of("nt:file"), Type.NAMES);
+            nodeType.setProperty(IndexConstants.DECLARING_NODE_TYPES, List.of("nt:file"), Type.NAMES);
             nodeType.setProperty(IndexConstants.REINDEX_PROPERTY_NAME, true);
         }
 
@@ -365,10 +366,10 @@ public class HybridIndexTest extends AbstractQueryTest {
 
         createPath("/a").setProperty("foo", "bar");
         root.commit();
-        assertQuery("select [jcr:path] from [nt:base] where [foo] = 'bar'", of("/a"));
+        assertQuery("select [jcr:path] from [nt:base] where [foo] = 'bar'", List.of("/a"));
 
         optionalEditorProvider.delegate = new TypeEditorProvider(false);
-        NodeTypeRegistry.register(root, IOUtils.toInputStream(TestUtil.TEST_NODE_TYPE), "test nodeType");
+        NodeTypeRegistry.register(root, IOUtils.toInputStream(TestUtil.TEST_NODE_TYPE, StandardCharsets.UTF_8), "test nodeType");
         root.refresh();
 
         Tree b = createPath("/b");
@@ -380,7 +381,8 @@ public class HybridIndexTest extends AbstractQueryTest {
         root.commit();
 
         String query = "select [jcr:path] from [oak:TestNode] ";
-        assertThat(explain(query), containsString("/oak:index/hybridtest"));
+        String explain = explain(query);
+        assertThat(explain, containsString("/oak:index/hybridtest"));
         assertQuery(query, of("/b", "/c"));
     }
 

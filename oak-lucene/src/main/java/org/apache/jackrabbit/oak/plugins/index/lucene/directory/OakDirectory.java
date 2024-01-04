@@ -218,6 +218,12 @@ public class OakDirectory extends Directory {
         return new OakIndexOutput(name, file, indexName, blobFactory, streamingWriteEnabled);
     }
 
+    @Override
+    public IndexOutput createTempOutput(String s, String s1, IOContext ioContext)
+        throws IOException {
+        return null;
+    }
+
 
     @Override
     public IndexInput openInput(String name, IOContext context)

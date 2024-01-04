@@ -120,12 +120,12 @@ public class LuceneDocumentMaker extends FulltextDocumentMaker<Document> {
 
         Field f;
         if (tag == Type.LONG.tag()) {
-            f = new LongField(pname, property.getValue(Type.LONG, i), Field.Store.NO);
+            f = new LongPoint(pname, property.getValue(Type.LONG, i));
         } else if (tag == Type.DATE.tag()) {
             String date = property.getValue(Type.DATE, i);
-            f = new LongField(pname, FieldFactory.dateToLong(date), Field.Store.NO);
+            f = new LongPoint(pname, FieldFactory.dateToLong(date));
         } else if (tag == Type.DOUBLE.tag()) {
-            f = new DoubleField(pname, property.getValue(Type.DOUBLE, i), Field.Store.NO);
+            f = new DoublePoint(pname, property.getValue(Type.DOUBLE, i));
         } else if (tag == Type.BOOLEAN.tag()) {
             f = new StringField(pname, property.getValue(Type.BOOLEAN, i).toString(), Field.Store.NO);
         } else {

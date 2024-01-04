@@ -1234,7 +1234,7 @@ public class IndexCopierTest {
             closer.register(this::close0);
         }
 
-        private void close0() {
+        private void close0() throws IOException {
             super.close();
         }
     }

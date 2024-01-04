@@ -172,6 +172,12 @@ public final class BufferedOakDirectory extends Directory {
     }
 
     @Override
+    public IndexOutput createTempOutput(String s, String s1, IOContext ioContext)
+        throws IOException {
+        return null;
+    }
+
+    @Override
     public void sync(Collection<String> names) throws IOException {
         LOG.debug("[{}]sync({})", definition.getIndexPath(), names);
         buffered.sync(names);

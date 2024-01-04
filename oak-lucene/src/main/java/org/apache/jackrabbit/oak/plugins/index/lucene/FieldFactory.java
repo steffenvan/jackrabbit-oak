@@ -32,7 +32,7 @@ import org.apache.jackrabbit.oak.plugins.index.search.spi.binary.BlobByteSource;
 import org.apache.jackrabbit.util.ISO8601;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
-import org.apache.lucene.document.IntField;
+import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
@@ -166,7 +166,7 @@ public final class FieldFactory {
     }
 
     public static Field newDepthField(String path){
-        return new IntField(FieldNames.PATH_DEPTH, PathUtils.getDepth(path), NO);
+        return new IntPoint(FieldNames.PATH_DEPTH, PathUtils.getDepth(path));
     }
 
     public static Field newSuggestField(String... values) {

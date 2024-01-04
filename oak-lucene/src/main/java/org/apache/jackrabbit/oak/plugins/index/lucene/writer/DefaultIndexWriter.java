@@ -200,7 +200,7 @@ class DefaultIndexWriter implements LuceneIndexWriter {
             final Closer closer = Closer.create();
 
             NodeBuilder suggesterStatus = definitionBuilder.child(suggestDirName);
-            DirectoryReader reader = closer.register(DirectoryReader.open(writer, false));
+            DirectoryReader reader = closer.register(DirectoryReader.open(writer));
             final Directory suggestDirectory = directoryFactory.newInstance(definition, definitionBuilder, suggestDirName, false);
             // updateSuggester would close the directory (directly or via lookup)
             // closer.register(suggestDirectory);

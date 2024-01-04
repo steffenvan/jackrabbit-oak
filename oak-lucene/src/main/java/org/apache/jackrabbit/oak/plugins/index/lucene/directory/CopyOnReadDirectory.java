@@ -251,7 +251,7 @@ public class CopyOnReadDirectory extends FilterDirectory {
         } finally {
             if (copyAttempted && !success){
                 try {
-                    if (!fileExists(local, name)){
+                    if (fileExists(local, name)){
                         local.deleteFile(name);
                     }
                 } catch (IOException e) {
@@ -286,28 +286,25 @@ public class CopyOnReadDirectory extends FilterDirectory {
         //no other IndexSearcher are opened with previous revision of Index due to
         //way IndexTracker closes LuceneIndexNode. At max there would be only two LuceneIndexNode
         //opened pinned to different revision of same Lucene index
-        executor.execute(new Runnable() {
-            @Override
-            public void run() {
-                try{
-                    removeDeletedFiles();
-                } catch (IOException e) {
-                    log.warn(
-                            "[{}] Error occurred while removing deleted files from Local {}, Remote {}",
-                            indexPath, local, remote, e);
-                }
+        executor.execute(() -> {
+            try{
+                removeDeletedFiles();
+            } catch (IOException e) {
+                log.warn(
+                        "[{}] Error occurred while removing deleted files from Local {}, Remote {}",
+                        indexPath, local, remote, e);
+            }
 
-                try {
-                    //This would also remove old index files if current
-                    //directory was based on newerRevision as local would
-                    //be of type DeleteOldDirOnClose
-                    local.close();
-                    remote.close();
-                } catch (IOException e) {
-                    log.warn(
-                            "[{}] Error occurred while closing directory ",
-                            indexPath, e);
-                }
+            try {
+                //This would also remove old index files if current
+                //directory was based on newerRevision as local would
+                //be of type DeleteOldDirOnClose
+                local.close();
+                remote.close();
+            } catch (IOException e) {
+                log.warn(
+                        "[{}] Error occurred while closing directory ",
+                        indexPath, e);
             }
         });
     }

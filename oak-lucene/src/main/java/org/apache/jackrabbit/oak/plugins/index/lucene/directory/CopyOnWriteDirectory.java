@@ -513,7 +513,7 @@ public class CopyOnWriteDirectory extends FilterDirectory {
             private final IndexOutput delegate;
 
             public CopyOnCloseIndexOutput(IndexOutput delegate) {
-                super(delegate.toString());
+                super("CopyOnCloseIndexOutput", delegate.toString());
                 this.delegate = delegate;
             }
 

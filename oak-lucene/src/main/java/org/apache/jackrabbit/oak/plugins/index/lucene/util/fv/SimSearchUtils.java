@@ -30,6 +30,7 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
@@ -140,7 +141,8 @@ public class SimSearchUtils {
 
             if (text != null && !sp.isEmpty()) {
                 log.debug("generating similarity query for {}", text);
-                BooleanQuery booleanQuery = new BooleanQuery(true);
+//                BooleanQuery booleanQuery = new BooleanQuery(true);
+                BooleanQuery.Builder booleanQuery = new BooleanQuery.Builder();
                 LSHAnalyzer analyzer = new LSHAnalyzer();
                 IndexSearcher searcher = new IndexSearcher(reader);
                 TermQuery q = new TermQuery(new Term(FieldNames.PATH, text));
@@ -158,12 +160,11 @@ public class SimSearchUtils {
                             booleanQuery.add(new BooleanClause(simQuery, SHOULD));
                             String[] binaryTags = doc.getValues(FieldNames.SIMILARITY_TAGS);
                             if (binaryTags != null && binaryTags.length > 0) {
-                                BooleanQuery tagQuery = new BooleanQuery();
+                                BooleanQuery.Builder tagQuery = new BooleanQuery.Builder();
                                 for (String brt : binaryTags) {
                                     tagQuery.add(new BooleanClause(new TermQuery(new Term(FieldNames.SIMILARITY_TAGS, brt)), SHOULD));
                                 }
-                                tagQuery.setBoost(0.5f);
-                                booleanQuery.add(tagQuery, SHOULD);
+                                booleanQuery.add(new BoostQuery(tagQuery.build(), 0.5f), SHOULD);
                             }
                             log.trace("similarity query generated for {}", pd.name);
                         } else {
@@ -171,8 +172,8 @@ public class SimSearchUtils {
                         }
                     }
                 }
-                if (booleanQuery.clauses().size() > 0) {
-                    similarityQuery = booleanQuery;
+                if (!booleanQuery.build().clauses().isEmpty()) {
+                    similarityQuery = booleanQuery.build();
                     log.trace("final similarity query is {}", similarityQuery);
                 }
             }
@@ -190,8 +191,8 @@ public class SimSearchUtils {
             bandSize = computeBandSize(minhashes.size(), similarity, expectedTruePositive);
         }
 
-        BooleanQuery builder = new BooleanQuery();
-        BooleanQuery childBuilder = new BooleanQuery();
+        BooleanQuery.Builder builder = new BooleanQuery.Builder();
+        BooleanQuery.Builder childBuilder = new BooleanQuery.Builder();
         int rowInBand = 0;
         for (BytesRef minHash : minhashes) {
             TermQuery tq = new TermQuery(new Term(field, minHash));
@@ -201,33 +202,34 @@ public class SimSearchUtils {
                 childBuilder.add(new ConstantScoreQuery(tq), BooleanClause.Occur.MUST);
                 rowInBand++;
                 if (rowInBand == bandSize) {
-                    builder.add(new ConstantScoreQuery(childBuilder),
+                    builder.add(new ConstantScoreQuery(childBuilder.build()),
                             BooleanClause.Occur.SHOULD);
-                    childBuilder = new BooleanQuery();
+                    childBuilder = new BooleanQuery.Builder();
                     rowInBand = 0;
                 }
             }
         }
-        // Avoid a dubious narrow band, wrap around and pad with the start
-        if (childBuilder.clauses().size() > 0) {
+        // Avoid a dubious narrow-band, wrap around and pad with the start
+        if (!childBuilder.build().clauses().isEmpty()) {
             for (BytesRef token : minhashes) {
                 TermQuery tq = new TermQuery(new Term(field, token.toString()));
                 childBuilder.add(new ConstantScoreQuery(tq), BooleanClause.Occur.MUST);
                 rowInBand++;
                 if (rowInBand == bandSize) {
-                    builder.add(new ConstantScoreQuery(childBuilder),
+                    builder.add(new ConstantScoreQuery(childBuilder.build()),
                             BooleanClause.Occur.SHOULD);
                     break;
                 }
             }
         }
 
+        BooleanQuery finalQuery = builder.build();
         if (expectedTruePositive >= 1.0 && similarity < 1) {
             builder.setMinimumNumberShouldMatch((int) (Math.ceil(minhashes.size() * similarity)));
         }
         log.trace("similarity query with bands : {}, minShouldMatch : {}, no. of clauses : {}", bandSize,
-                builder.getMinimumNumberShouldMatch(), builder.clauses().size());
-        return builder;
+                finalQuery.getMinimumNumberShouldMatch(), finalQuery.clauses().size());
+        return finalQuery;
 
     }
 

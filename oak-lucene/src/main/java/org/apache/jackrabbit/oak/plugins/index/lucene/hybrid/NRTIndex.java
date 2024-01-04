@@ -314,7 +314,7 @@ public class NRTIndex implements Closeable {
             //applyDeletes is false as layers above would take care of
             //stale result
             if (dirReader == null || dirReader.getRefCount() == 0) {
-                result = DirectoryReader.open(indexWriter, false);
+                result = DirectoryReader.open(indexWriter);
             } else {
                 DirectoryReader newReader = DirectoryReader.openIfChanged(dirReader, indexWriter, false);
                 if (newReader != null) {

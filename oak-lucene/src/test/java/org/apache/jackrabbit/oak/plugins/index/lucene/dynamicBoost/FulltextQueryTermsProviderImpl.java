@@ -31,6 +31,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.TermQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,7 +65,7 @@ public class FulltextQueryTermsProviderImpl implements FulltextQueryTermsProvide
         }
 
         LOG.debug("getQueryTerm Text: {}", text);
-        BooleanQuery query = this.createQuery();
+        BooleanQuery.Builder query = this.createQuery();
 
         Set<String> charTerms = new HashSet<String>(splitForSearch(text));
         LOG.debug("getQueryTerm charTerms: {}", charTerms);
@@ -87,8 +88,7 @@ public class FulltextQueryTermsProviderImpl implements FulltextQueryTermsProvide
         LOG.debug("Added query term: {}", text.toLowerCase());
 
         //De-boosting smart tags based query.
-        query.setBoost(0.0001f);
-        return query;
+        return new BoostQuery(query.build(), 0.0001f);
 
     }
 
@@ -147,8 +147,8 @@ public class FulltextQueryTermsProviderImpl implements FulltextQueryTermsProvide
         return text.replaceAll("\\\\", "");
     }
 
-    protected BooleanQuery createQuery() {
-        return new BooleanQuery();
+    protected BooleanQuery.Builder createQuery() {
+        return new BooleanQuery.Builder();
     }
 
 }

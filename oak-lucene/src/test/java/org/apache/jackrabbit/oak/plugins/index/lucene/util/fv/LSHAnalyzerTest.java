@@ -60,7 +60,7 @@ public class LSHAnalyzerTest {
                 writer.addDocument(document);
                 writer.commit();
 
-                reader = DirectoryReader.open(writer, false);
+                reader = DirectoryReader.open(writer);
                 assertSimQuery(analyzer, fieldName, text, reader);
             } finally {
                 if (reader != null) {
@@ -100,7 +100,7 @@ public class LSHAnalyzerTest {
           writer.addDocument(document);
           writer.commit();
 
-          reader = DirectoryReader.open(writer, false);
+          reader = DirectoryReader.open(writer);
           assertSimQuery(analyzer, fieldName, fvString, reader);
       } finally {
           if (reader != null) {

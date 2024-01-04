@@ -75,6 +75,7 @@ import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.PhraseQuery;
@@ -874,23 +875,23 @@ public class LuceneIndex implements AdvanceFulltextQueryIndex {
         }
 
         // reference query
-        BooleanQuery bq = new BooleanQuery();
+        BooleanQuery.Builder bq = new BooleanQuery.Builder();
         Collection<String> fields = MultiFields.getIndexedFields(reader);
         for (String f : fields) {
             bq.add(new TermQuery(new Term(f, uuid)), SHOULD);
         }
-        qs.add(bq);
+        qs.add(bq.build());
     }
 
     private static void addNodeTypeConstraints(List<Query> qs, Filter filter) {
-        BooleanQuery bq = new BooleanQuery();
+        BooleanQuery.Builder bq = new BooleanQuery.Builder();
         for (String type : filter.getPrimaryTypes()) {
             bq.add(new TermQuery(new Term(JCR_PRIMARYTYPE, type)), SHOULD);
         }
         for (String type : filter.getMixinTypes()) {
             bq.add(new TermQuery(new Term(JCR_MIXINTYPES, type)), SHOULD);
         }
-        qs.add(bq);
+        qs.add(bq.build());
     }
 
     static Query getFullTextQuery(FullTextExpression ft, final Analyzer analyzer, final IndexReader reader) {
@@ -906,28 +907,28 @@ public class LuceneIndex implements AdvanceFulltextQueryIndex {
 
             @Override
             public boolean visit(FullTextOr or) {
-                BooleanQuery q = new BooleanQuery();
+                BooleanQuery.Builder q = new BooleanQuery.Builder();
                 for (FullTextExpression e : or.list) {
                     Query x = getFullTextQuery(e, analyzer, reader);
                     q.add(x, SHOULD);
                 }
-                result.set(q);
+                result.set(q.build());
                 return true;
             }
 
             @Override
             public boolean visit(FullTextAnd and) {
-                BooleanQuery q = new BooleanQuery();
+                BooleanQuery.Builder q = new BooleanQuery.Builder();
                 for (FullTextExpression e : and.list) {
                     Query x = getFullTextQuery(e, analyzer, reader);
                     /* Only unwrap the clause if MUST_NOT(x) */
                     boolean hasMustNot = false;
                     if (x instanceof BooleanQuery) {
                         BooleanQuery bq = (BooleanQuery) x;
-                        if ((bq.getClauses().length == 1) &&
-                            (bq.getClauses()[0].getOccur() == Occur.MUST_NOT)) {
+                        if ((bq.clauses().size() == 1) &&
+                            (bq.clauses().get(0).getOccur() == Occur.MUST_NOT)) {
                             hasMustNot = true;
-                            q.add(bq.getClauses()[0]);
+                            q.add(bq.clauses().get(0));
                         }
                     }
 
@@ -935,7 +936,7 @@ public class LuceneIndex implements AdvanceFulltextQueryIndex {
                         q.add(x, MUST);
                     }
                 }
-                result.set(q);
+                result.set(q.build());
                 return true;
             }
 
@@ -954,12 +955,14 @@ public class LuceneIndex implements AdvanceFulltextQueryIndex {
                     return false;
                 }
                 if (boost != null) {
-                    q.setBoost(Float.parseFloat(boost));
+                    q = new BoostQuery(q, Float.parseFloat(boost));
                 }
+                // TODO: Should we update this the same way we updated the compatVersion 2?
+                // See the comment in the exact same function in LucenePropertyIndex#getFulltextQuery
                 if (not) {
-                    BooleanQuery bq = new BooleanQuery();
+                    BooleanQuery.Builder bq = new BooleanQuery.Builder();
                     bq.add(q, MUST_NOT);
-                    result.set(bq);
+                    result.set(bq.build());
                 } else {
                     result.set(q);
                 }
@@ -977,7 +980,7 @@ public class LuceneIndex implements AdvanceFulltextQueryIndex {
 
         if (tokens.isEmpty()) {
             // TODO what should be returned in the case there are no tokens?
-            return new BooleanQuery();
+            return new BooleanQuery.Builder().build();
         }
         if (tokens.size() == 1) {
             String token = tokens.iterator().next();
@@ -988,7 +991,7 @@ public class LuceneIndex implements AdvanceFulltextQueryIndex {
             }
         } else {
             if (hasFulltextToken(tokens)) {
-                BooleanQuery bq = new BooleanQuery();
+                BooleanQuery.Builder bq = new BooleanQuery.Builder();
                 for(String token: tokens){
                     if (hasFulltextToken(token)) {
                         bq.add(new WildcardQuery(newFulltextTerm(token, fieldName)), Occur.MUST);
@@ -996,13 +999,13 @@ public class LuceneIndex implements AdvanceFulltextQueryIndex {
                         bq.add(new TermQuery(newFulltextTerm(token, fieldName)), Occur.MUST);
                     }
                 }
-                return bq;
+                return bq.build();
             } else {
-                PhraseQuery pq = new PhraseQuery();
+                PhraseQuery.Builder pq = new PhraseQuery.Builder();
                 for (String t : tokens) {
                     pq.add(newFulltextTerm(t, fieldName));
                 }
-                return pq;
+                return pq.build();
             }
         }
     }

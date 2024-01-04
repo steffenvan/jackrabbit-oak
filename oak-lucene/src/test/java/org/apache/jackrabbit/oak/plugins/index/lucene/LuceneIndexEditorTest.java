@@ -60,13 +60,15 @@ import org.apache.jackrabbit.oak.spi.state.NodeBuilder;
 import org.apache.jackrabbit.oak.spi.state.NodeState;
 import org.apache.jackrabbit.oak.spi.state.NodeStateUtils;
 import org.apache.jackrabbit.test.ISO8601;
+import org.apache.lucene.document.DoublePoint;
+import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.NumericRangeQuery;
+import org.apache.lucene.search.LegacyNumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
@@ -151,7 +153,7 @@ public class LuceneIndexEditorTest {
         //system fields starts with ':' so need to be escaped
         assertEquals("/test", query(escape(FieldNames.createAnalyzedFieldName("foo"))+":fox", defn));
         assertNull("Non string properties not indexed by default",
-                getPath(NumericRangeQuery.newLongRange("price", 100L, 100L, true, true)));
+                getPath(LongPoint.newRangeQuery("price", 100L, 100L)));
     }
 
     @Test
@@ -213,23 +215,23 @@ public class LuceneIndexEditorTest {
         assertNull("bar must NOT be indexed", getPath(new TermQuery(new Term("bar", "kite is flying"))));
 
         //Long
-        assertEquals("/test", getPath(NumericRangeQuery.newDoubleRange("weight", 8D, 12D, true, true)));
+        assertEquals("/test", getPath(DoublePoint.newRangeQuery("weight", 8D, 12D)));
 
         //Double
-        assertEquals("/test", getPath(NumericRangeQuery.newLongRange("price", 100L, 100L, true, true)));
+        assertEquals("/test", getPath(LongPoint.newRangeQuery("price", 100L, 100L)));
 
         //Boolean
         assertEquals("/test", getPath(new TermQuery(new Term("bool", "true"))));
         assertNull("truth must NOT be indexed", getPath(new TermQuery(new Term("truth", "true"))));
 
         //Date
-        assertEquals("/test", getPath(NumericRangeQuery.newLongRange("creationTime",
-                dateToTime("05/05/2014"), dateToTime("05/07/2014"), true, true)));
+        assertEquals("/test", getPath(LongPoint.newRangeQuery("creationTime",
+                dateToTime("05/05/2014"), dateToTime("05/07/2014"))));
 
         // Call FieldFactory.dateToLong with an unsupported Date format - this should throw a RuntimeException
         try {
-            getPath(NumericRangeQuery.newLongRange("creationTime",
-                    FieldFactory.dateToLong("05/05/2014"), FieldFactory.dateToLong("05/07/2014"), true, true));
+            getPath(LongPoint.newRangeQuery("creationTime",
+                    FieldFactory.dateToLong("05/05/2014"), FieldFactory.dateToLong("05/07/2014")));
         } catch (RuntimeException e) {
             assertEquals("Unable to parse the provided date field : 05/05/2014 to convert to millis." +
                     " Supported format is ±YYYY-MM-DDThh:mm:ss.SSSTZD", e.getMessage());
